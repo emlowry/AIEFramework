@@ -11,7 +11,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Tutorial1", "Tutorial1\Tuto
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Tutorial_2", "Tutorial_2\Tutorial_2.vcxproj", "{C691C491-1D9A-4DC3-BBDC-9ED8CEF4FDEF}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Tutorial02_SampleFBX", "Tutorial02_SampleFBX\Tutorial02_SampleFBX.vcxproj", "{B53D0A73-FE97-43D0-910D-1C63FE462251}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Tutorial02_SampleFBX", "Tutorial02_SampleFBX\Tutorial02_SampleFBX.vcxproj", "{DFF45C7C-FE0F-450E-9A2C-5C279BC794BF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -35,10 +35,10 @@ Global
 		{C691C491-1D9A-4DC3-BBDC-9ED8CEF4FDEF}.Debug|Win32.Build.0 = Debug|Win32
 		{C691C491-1D9A-4DC3-BBDC-9ED8CEF4FDEF}.Release|Win32.ActiveCfg = Release|Win32
 		{C691C491-1D9A-4DC3-BBDC-9ED8CEF4FDEF}.Release|Win32.Build.0 = Release|Win32
-		{B53D0A73-FE97-43D0-910D-1C63FE462251}.Debug|Win32.ActiveCfg = Debug|Win32
-		{B53D0A73-FE97-43D0-910D-1C63FE462251}.Debug|Win32.Build.0 = Debug|Win32
-		{B53D0A73-FE97-43D0-910D-1C63FE462251}.Release|Win32.ActiveCfg = Release|Win32
-		{B53D0A73-FE97-43D0-910D-1C63FE462251}.Release|Win32.Build.0 = Release|Win32
+		{DFF45C7C-FE0F-450E-9A2C-5C279BC794BF}.Debug|Win32.ActiveCfg = Debug|Win32
+		{DFF45C7C-FE0F-450E-9A2C-5C279BC794BF}.Debug|Win32.Build.0 = Debug|Win32
+		{DFF45C7C-FE0F-450E-9A2C-5C279BC794BF}.Release|Win32.ActiveCfg = Release|Win32
+		{DFF45C7C-FE0F-450E-9A2C-5C279BC794BF}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

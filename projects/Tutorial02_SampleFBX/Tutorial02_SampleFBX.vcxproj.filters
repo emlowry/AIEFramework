@@ -25,7 +25,13 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="SimpleFBX_Tutorial.vert" />
-    <None Include="SimpleFBX_Tutorial.frag" />
+    <None Include="Models\soulspear\soulspear.fbx" />
+    <None Include="shaders\SimpleFBX_Tutorial.vert" />
+    <None Include="shaders\SimpleFBX_Tutorial.frag" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Models\soulspear\soulspear_diffuse.tga" />
+    <Image Include="Models\soulspear\soulspear_normal.tga" />
+    <Image Include="Models\soulspear\soulspear_specular.tga" />
   </ItemGroup>
 </Project>

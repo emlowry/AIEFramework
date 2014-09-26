@@ -4,6 +4,13 @@
 #include "FBXFile.h"
 #include <glm/glm.hpp>
 
+struct OGL_FBXRenderData
+{
+	unsigned int VBO; // vertex buffer object
+	unsigned int IBO; // index buffer object
+	unsigned int VAO; // vertex array object
+};
+
 // derived application class that wraps up all globals neatly
 class Tutorial02_SampleFBX : public Application
 {
@@ -28,4 +35,5 @@ protected:
 	glm::mat4	m_projectionMatrix;
 
 	unsigned int m_shader;
+	FBXFile *m_fbx;
 };
