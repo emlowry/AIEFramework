@@ -13,6 +13,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Tutorial_2", "Tutorial_2\Tu
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Tutorial02_SampleFBX", "Tutorial02_SampleFBX\Tutorial02_SampleFBX.vcxproj", "{DFF45C7C-FE0F-450E-9A2C-5C279BC794BF}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TexturingTutorial", "TexturingTutorial\TexturingTutorial.vcxproj", "{BB4DDEAC-0857-4033-8EE1-B09F44059C5E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -39,6 +41,10 @@ Global
 		{DFF45C7C-FE0F-450E-9A2C-5C279BC794BF}.Debug|Win32.Build.0 = Debug|Win32
 		{DFF45C7C-FE0F-450E-9A2C-5C279BC794BF}.Release|Win32.ActiveCfg = Release|Win32
 		{DFF45C7C-FE0F-450E-9A2C-5C279BC794BF}.Release|Win32.Build.0 = Release|Win32
+		{BB4DDEAC-0857-4033-8EE1-B09F44059C5E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{BB4DDEAC-0857-4033-8EE1-B09F44059C5E}.Debug|Win32.Build.0 = Debug|Win32
+		{BB4DDEAC-0857-4033-8EE1-B09F44059C5E}.Release|Win32.ActiveCfg = Release|Win32
+		{BB4DDEAC-0857-4033-8EE1-B09F44059C5E}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
