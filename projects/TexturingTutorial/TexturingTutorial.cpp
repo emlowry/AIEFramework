@@ -39,6 +39,43 @@ bool TexturingTutorial::onCreate(int a_argc, char* a_argv[])
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 
+	//  load image data
+	int width = 0;
+	int height = 0;
+	int format = 0;
+	unsigned char* pixelData = stbi_load("../../bin/textures/numbered_grid.tga",
+		&width, &height, &format, STBI_default);
+
+	printf("Width: %i Height: %i Format: %i\n", width, height, format);
+
+	// create OpenGL texture handle
+	glGenTextures(1, &m_texture);
+	glBindTexture(GL_TEXTURE_2D, m_texture);
+
+	// set pixel data for texture
+	glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, pixelData);
+
+	// set filtering
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	// clear bound texture state so we don't accidentally change it
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// delete pixel data here instead!
+	delete[] pixelData;
+
+	// create a simple plane to render
+	Utility::build3DPlane(10, m_vao, m_vbo, m_ibo);
+
+	// load shaders and link shader program
+	m_vertShader = Utility::loadShader("bin/shaders/textured.vert", GL_VERTEX_SHADER);
+	m_fragShader = Utility::loadShader("bin/shaders/textured.frag", GL_FRAGMENT_SHADER);
+
+	// our vertex buffer has 3 properties per-vertex
+	const char* inputs[] = { "position", "colour", "textureCoordinate" };
+	m_shader = Utility::createProgram(m_vertShader, 0, 0, 0, m_fragShader, 3, inputs);
+
 	return true;
 }
 
@@ -83,10 +120,40 @@ void TexturingTutorial::onDraw()
 	int width = 0, height = 0;
 	glfwGetWindowSize(m_window, &width, &height);
 	Gizmos::draw2D(glm::ortho<float>(0, width, 0, height, -1.0f, 1.0f));
+
+	// bind shader to the GPU
+	glUseProgram(m_shader);
+
+	// fetch locations of the view and projection matrices and bind them
+	unsigned int location = glGetUniformLocation(m_shader, "view");
+	glUniformMatrix4fv(location, 1, false, glm::value_ptr(viewMatrix));
+
+	location = glGetUniformLocation(m_shader, "projection");
+	glUniformMatrix4fv(location, 1, false, glm::value_ptr(m_projectionMatrix));
+
+	// activate texture slot 0 and bind our texture to it
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, m_texture);
 }
 
 void TexturingTutorial::onDestroy()
 {
+	// clean up anything we created
+	Gizmos::destroy();
+
+	// delete the data for the plane
+	glDeleteVertexArrays(1, &m_vao);
+	glDeleteBuffers(1, &m_vbo);
+	glDeleteBuffers(1, &m_ibo);
+
+	// delete the texture
+	glDeleteTextures(1, &m_texture);
+
+	// delete the shader
+	glDeleteProgram(m_shader);
+	glDeleteShader(m_vertShader);
+	glDeleteShader(m_fragShader);
+
 	// clean up anything we created
 	Gizmos::destroy();
 }

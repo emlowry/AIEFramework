@@ -82,6 +82,10 @@
   <ItemGroup>
     <ClInclude Include="TexturingTutorial.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="bin\shaders\TexturingTutorial.frag" />
+    <None Include="bin\shaders\TexturingTutorial.vert" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

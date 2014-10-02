@@ -24,4 +24,8 @@
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="bin\shaders\TexturingTutorial.frag" />
+    <None Include="bin\shaders\TexturingTutorial.vert" />
+  </ItemGroup>
 </Project>
