@@ -3,14 +3,6 @@
 #include "Application.h"
 #include <glm/glm.hpp>
 
-// a basic vertex structure supporting position, colour and texture coordinate
-struct BasicVertex
-{
-	glm::vec4 position;
-	glm::vec4 colour;
-	glm::vec2 texCoord;
-};
-
 // derived application class that wraps up all globals neatly
 class TexturingTutorial : public Application
 {

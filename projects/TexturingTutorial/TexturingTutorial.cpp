@@ -40,10 +40,10 @@ bool TexturingTutorial::onCreate(int a_argc, char* a_argv[])
 	glEnable(GL_CULL_FACE);
 
 	//  load image data
-	int width = 0;
-	int height = 0;
+	width = 0;
+	height = 0;
 	int format = 0;
-	unsigned char* pixelData = stbi_load("../../bin/textures/numbered_grid.tga",
+	unsigned char* pixelData = stbi_load("../../bin/textures/crate.png",
 		&width, &height, &format, STBI_default);
 
 	printf("Width: %i Height: %i Format: %i\n", width, height, format);
@@ -53,7 +53,7 @@ bool TexturingTutorial::onCreate(int a_argc, char* a_argv[])
 	glBindTexture(GL_TEXTURE_2D, m_texture);
 
 	// set pixel data for texture
-	glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, pixelData);
+	glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixelData);
 
 	// set filtering
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -69,8 +69,8 @@ bool TexturingTutorial::onCreate(int a_argc, char* a_argv[])
 	Utility::build3DPlane(10, m_vao, m_vbo, m_ibo);
 
 	// load shaders and link shader program
-	m_vertShader = Utility::loadShader("bin/shaders/textured.vert", GL_VERTEX_SHADER);
-	m_fragShader = Utility::loadShader("bin/shaders/textured.frag", GL_FRAGMENT_SHADER);
+	m_vertShader = Utility::loadShader("bin/shaders/TexturingTutorial.vert", GL_VERTEX_SHADER);
+	m_fragShader = Utility::loadShader("bin/shaders/TexturingTutorial.frag", GL_FRAGMENT_SHADER);
 
 	// our vertex buffer has 3 properties per-vertex
 	const char* inputs[] = { "position", "colour", "textureCoordinate" };
@@ -119,7 +119,7 @@ void TexturingTutorial::onDraw()
 	// get window dimensions for 2D orthographic projection
 	int width = 0, height = 0;
 	glfwGetWindowSize(m_window, &width, &height);
-	Gizmos::draw2D(glm::ortho<float>(0, width, 0, height, -1.0f, 1.0f));
+	Gizmos::draw2D(glm::ortho<float>(0.0f, (float)width, 0.0f, (float)height, -1.0f, 1.0f));
 
 	// bind shader to the GPU
 	glUseProgram(m_shader);
@@ -134,6 +134,14 @@ void TexturingTutorial::onDraw()
 	// activate texture slot 0 and bind our texture to it
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, m_texture);
+
+	// fetch the location of the texture sampler and bind it to 0
+	location = glGetUniformLocation(m_shader, "textureMap");
+	glUniform1i(location, 0);
+
+	// bind out 3D plane and draw it
+	glBindVertexArray(m_vao);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 }
 
 void TexturingTutorial::onDestroy()
