@@ -15,6 +15,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Tutorial02_SampleFBX", "Tut
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TexturingTutorial", "TexturingTutorial\TexturingTutorial.vcxproj", "{BB4DDEAC-0857-4033-8EE1-B09F44059C5E}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ParticleTutorial", "ParticleTutorial\ParticleTutorial.vcxproj", "{9740E322-71CE-41CF-9EC9-0C1959820116}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -45,6 +47,10 @@ Global
 		{BB4DDEAC-0857-4033-8EE1-B09F44059C5E}.Debug|Win32.Build.0 = Debug|Win32
 		{BB4DDEAC-0857-4033-8EE1-B09F44059C5E}.Release|Win32.ActiveCfg = Release|Win32
 		{BB4DDEAC-0857-4033-8EE1-B09F44059C5E}.Release|Win32.Build.0 = Release|Win32
+		{9740E322-71CE-41CF-9EC9-0C1959820116}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9740E322-71CE-41CF-9EC9-0C1959820116}.Debug|Win32.Build.0 = Debug|Win32
+		{9740E322-71CE-41CF-9EC9-0C1959820116}.Release|Win32.ActiveCfg = Release|Win32
+		{9740E322-71CE-41CF-9EC9-0C1959820116}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
