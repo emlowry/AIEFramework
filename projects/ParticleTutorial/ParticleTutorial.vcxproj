@@ -85,8 +85,8 @@
     <ClInclude Include="ParticleTutorial.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\particle.frag" />
-    <None Include="shaders\particle.vert" />
+    <None Include="shaders\ParticleTutorial.frag" />
+    <None Include="shaders\ParticleTutorial.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

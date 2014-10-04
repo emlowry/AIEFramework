@@ -22,5 +22,9 @@ protected:
 	glm::mat4	m_cameraMatrix;
 	glm::mat4	m_projectionMatrix;
 
+	unsigned int m_vertShader;
+	unsigned int m_fragShader;
+	unsigned int m_shader;
+
 	ParticleEmitter* m_emitter;
 };

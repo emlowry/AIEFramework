@@ -18,6 +18,7 @@ struct ParticleVertex
 {
 	glm::vec4	position;
 	glm::vec4	colour;
+	glm::vec2	textureCoordinate;
 };
 
 class ParticleEmitter
@@ -31,7 +32,8 @@ public:
 				   float a_lifetimeMin, float a_lifetimeMax,
 				   float a_velocityMin, float a_velocityMax,
 				   float a_startSize, float a_endSize,
-				   const glm::vec4& a_startColour, const glm::vec4& a_endColour);
+				   const glm::vec4& a_startColour, const glm::vec4& a_endColour,
+				   const char* textureFileName = nullptr);
 	void emit();
 	void update(float a_deltaTime, const glm::mat4& a_cameraTransform);
 	void draw();
@@ -46,22 +48,24 @@ protected:
 	ParticleVertex*	m_vertexData;
 	unsigned int*	m_indexData;
 
-	glm::vec3	m_position;
+	glm::vec3		m_position;
 
-	float		m_emitTimer;
-	float		m_emitRate;
+	float			m_emitTimer;
+	float			m_emitRate;
 
-	float		m_lifespanMin;
-	float		m_lifespanMax;
+	float			m_lifespanMin;
+	float			m_lifespanMax;
 
-	float		m_velocityMin;
-	float		m_velocityMax;
+	float			m_velocityMin;
+	float			m_velocityMax;
 
-	float		m_startSize;
-	float		m_endSize;
+	float			m_startSize;
+	float			m_endSize;
 
-	glm::vec4	m_startColour;
-	glm::vec4	m_endColour;
+	glm::vec4		m_startColour;
+	glm::vec4		m_endColour;
+
+	unsigned int	m_textureID;
 };
 
 #endif	// PARTICLE_SYSTEM__H

@@ -31,7 +31,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\particle.vert" />
-    <None Include="shaders\particle.frag" />
+    <None Include="shaders\ParticleTutorial.frag" />
+    <None Include="shaders\ParticleTutorial.vert" />
   </ItemGroup>
 </Project>

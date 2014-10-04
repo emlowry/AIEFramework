@@ -1,3 +1,5 @@
+#version 150
+
 in vec4 Position;
 in vec4 Colour;
 

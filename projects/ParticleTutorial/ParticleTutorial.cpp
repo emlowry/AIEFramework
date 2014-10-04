@@ -38,8 +38,16 @@ bool ParticleTutorial::onCreate(int a_argc, char* a_argv[])
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 
+	// load shaders and link shader program
+	m_vertShader = Utility::loadShader("shaders/ParticleTutorial.vert", GL_VERTEX_SHADER);
+	m_fragShader = Utility::loadShader("shaders/ParticleTutorial.frag", GL_FRAGMENT_SHADER);
+
+	// our vertex buffer has 3 properties per-vertex
+	const char* inputs[] = { "Position", "Colour" };
+	m_shader = Utility::createProgram(m_vertShader, 0, 0, 0, m_fragShader, 2, inputs);
+
 	m_emitter = new ParticleEmitter();
-	m_emitter->initalise(1000, 500, 0.1f, 0.9f, 1, 5, 0.1f, 1.0f,
+	m_emitter->initalise(1000, 500, 0.1f, 0.9f, 1.0f, 5.0f, 0.1f, 1.0f,
 						 glm::vec4(1, 1, 0, 1), glm::vec4(1, 0, 0, 1));
 
 	return true;
@@ -86,7 +94,17 @@ void ParticleTutorial::onDraw()
 	// get window dimensions for 2D orthographic projection
 	int width = 0, height = 0;
 	glfwGetWindowSize(m_window, &width, &height);
-	Gizmos::draw2D(glm::ortho<float>(0, width, 0, height, -1.0f, 1.0f));
+	Gizmos::draw2D(glm::ortho<float>(0.0f, (float)width, 0.0f, (float)height, -1.0f, 1.0f));
+
+	// bind shader to the GPU
+	glUseProgram(m_shader);
+
+	// fetch locations of the view and projection matrices and bind them
+	unsigned int location = glGetUniformLocation(m_shader, "view");
+	glUniformMatrix4fv(location, 1, false, glm::value_ptr(viewMatrix));
+
+	location = glGetUniformLocation(m_shader, "projection");
+	glUniformMatrix4fv(location, 1, false, glm::value_ptr(m_projectionMatrix));
 
 	m_emitter->draw();
 }
@@ -95,6 +113,11 @@ void ParticleTutorial::onDestroy()
 {
 	// clean up anything we created
 	Gizmos::destroy();
+
+	// delete the shader
+	glDeleteProgram(m_shader);
+	glDeleteShader(m_vertShader);
+	glDeleteShader(m_fragShader);
 }
 
 // main that controls the creation/destruction of an application

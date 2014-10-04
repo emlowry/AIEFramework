@@ -27,7 +27,8 @@ void ParticleEmitter::initalise(unsigned int a_maxParticles, unsigned int a_emit
 								float a_lifetimeMin, float a_lifetimeMax,
 								float a_velocityMin, float a_velocityMax,
 								float a_startSize, float a_endSize,
-								const glm::vec4& a_startColour, const glm::vec4& a_endColour)
+								const glm::vec4& a_startColour, const glm::vec4& a_endColour,
+								const char* textureFileName)
 {
 	// set up emit timers
 	m_emitTimer = 0;
@@ -83,8 +84,10 @@ void ParticleEmitter::initalise(unsigned int a_maxParticles, unsigned int a_emit
 
 	glEnableVertexAttribArray(0); // position
 	glEnableVertexAttribArray(1); // colour
+	glEnableVertexAttribArray(2); // textureCoordinate
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), 0);
 	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), ((char*)0) + sizeof(glm::vec4));
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), ((char*)0) + (2*sizeof(glm::vec4)));
 
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
