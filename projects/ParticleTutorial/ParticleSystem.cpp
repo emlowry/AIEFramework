@@ -2,6 +2,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <stb_image.h>
 
 ParticleEmitter::ParticleEmitter()
 : m_particles(nullptr),
@@ -18,6 +19,12 @@ ParticleEmitter::~ParticleEmitter()
 	delete[] m_indexData;
 	delete[] m_vertexData;
 
+	// delete the texture
+	if (0 != m_textureID)
+	{
+		glDeleteTextures(1, &m_textureID);
+	}
+
 	glDeleteVertexArrays(1, &m_vao);
 	glDeleteBuffers(1, &m_vbo);
 	glDeleteBuffers(1, &m_ibo);
@@ -28,8 +35,11 @@ void ParticleEmitter::initalise(unsigned int a_maxParticles, unsigned int a_emit
 								float a_velocityMin, float a_velocityMax,
 								float a_startSize, float a_endSize,
 								const glm::vec4& a_startColour, const glm::vec4& a_endColour,
-								const char* textureFileName)
+								unsigned int a_shader, const char* a_textureFileName)
 {
+	// store shader ID
+	m_shader = a_shader;
+
 	// set up emit timers
 	m_emitTimer = 0;
 	m_emitRate = 1.0f / a_emitRate;
@@ -92,6 +102,35 @@ void ParticleEmitter::initalise(unsigned int a_maxParticles, unsigned int a_emit
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	// if no file name is provided for the particle texture, texture ID will remain zero
+	m_textureID = 0;
+	m_useTexture = nullptr != a_textureFileName && 0 < strlen(a_textureFileName);
+	if (m_useTexture)
+	{
+		// load particle texture
+		int width = 0;
+		int height = 0;
+		int format = 0;
+		unsigned char* pixelData = stbi_load(a_textureFileName, &width, &height, &format, STBI_default);
+
+		// create OpenGL texture handle
+		glGenTextures(1, &m_textureID);
+		glBindTexture(GL_TEXTURE_2D, m_textureID);
+
+		// set pixel data for texture
+		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixelData);
+
+		// set filtering
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+		// clear bound texture state so we don't accidentally change it
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		// delete pixel data
+		delete[] pixelData;
+	}
 }
 
 void ParticleEmitter::emit()
@@ -167,15 +206,19 @@ void ParticleEmitter::update(float a_deltaTime, const glm::mat4& a_cameraTransfo
 
 			m_vertexData[quad * 4 + 0].position = glm::vec4(halfSize, halfSize, 0, 1);
 			m_vertexData[quad * 4 + 0].colour = particle->colour;
+			m_vertexData[quad * 4 + 0].textureCoordinate = glm::vec2(1, 0);
 
 			m_vertexData[quad * 4 + 1].position = glm::vec4(-halfSize, halfSize, 0, 1);
 			m_vertexData[quad * 4 + 1].colour = particle->colour;
+			m_vertexData[quad * 4 + 1].textureCoordinate = glm::vec2(0, 0);
 
 			m_vertexData[quad * 4 + 2].position = glm::vec4(-halfSize, -halfSize, 0, 1);
 			m_vertexData[quad * 4 + 2].colour = particle->colour;
+			m_vertexData[quad * 4 + 2].textureCoordinate = glm::vec2(0, 1);
 
 			m_vertexData[quad * 4 + 3].position = glm::vec4(halfSize, -halfSize, 0, 1);
 			m_vertexData[quad * 4 + 3].colour = particle->colour;
+			m_vertexData[quad * 4 + 3].textureCoordinate = glm::vec2(1, 1);
 
 			// create billboard transform
 			glm::vec3 zAxis = glm::normalize(a_cameraTransform[3].xyz - particle->position);
@@ -196,6 +239,18 @@ void ParticleEmitter::update(float a_deltaTime, const glm::mat4& a_cameraTransfo
 
 void ParticleEmitter::draw()
 {
+	// bind uniform for whether or not to use texture
+	unsigned int location = glGetUniformLocation(m_shader, "useTexture");
+	glUniform1i(location, m_useTexture ? GL_TRUE : GL_FALSE);
+	if (m_useTexture)
+	{
+		// bind texture
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, m_textureID);
+		location = glGetUniformLocation(m_shader, "textureMap");
+		glUniform1i(location, 0);
+	}
+
 	// sync the particle vertex buffer based on how many alive particles there are
 	glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, m_aliveParticles.size() * 4 * sizeof(ParticleVertex), m_vertexData);

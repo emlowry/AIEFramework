@@ -33,12 +33,13 @@ public:
 				   float a_velocityMin, float a_velocityMax,
 				   float a_startSize, float a_endSize,
 				   const glm::vec4& a_startColour, const glm::vec4& a_endColour,
-				   const char* textureFileName = nullptr);
-	void emit();
+				   unsigned int a_shader = 0, const char* a_textureFileName = nullptr);
 	void update(float a_deltaTime, const glm::mat4& a_cameraTransform);
 	void draw();
 
 protected:
+
+	void emit();
 
 	std::list<Particle*>	m_aliveParticles;
 	std::list<Particle*>	m_deadParticles;
@@ -65,7 +66,9 @@ protected:
 	glm::vec4		m_startColour;
 	glm::vec4		m_endColour;
 
+	bool			m_useTexture;
 	unsigned int	m_textureID;
+	unsigned int	m_shader;
 };
 
 #endif	// PARTICLE_SYSTEM__H

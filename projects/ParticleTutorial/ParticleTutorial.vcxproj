@@ -88,6 +88,9 @@
     <None Include="shaders\ParticleTutorial.frag" />
     <None Include="shaders\ParticleTutorial.vert" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="images\bubble.png" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

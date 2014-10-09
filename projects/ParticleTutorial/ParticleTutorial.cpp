@@ -38,6 +38,10 @@ bool ParticleTutorial::onCreate(int a_argc, char* a_argv[])
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 
+	// enable particle transparency
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	// load shaders and link shader program
 	m_vertShader = Utility::loadShader("shaders/ParticleTutorial.vert", GL_VERTEX_SHADER);
 	m_fragShader = Utility::loadShader("shaders/ParticleTutorial.frag", GL_FRAGMENT_SHADER);
@@ -47,8 +51,9 @@ bool ParticleTutorial::onCreate(int a_argc, char* a_argv[])
 	m_shader = Utility::createProgram(m_vertShader, 0, 0, 0, m_fragShader, 2, inputs);
 
 	m_emitter = new ParticleEmitter();
-	m_emitter->initalise(1000, 500, 0.1f, 0.9f, 1.0f, 5.0f, 0.1f, 1.0f,
-						 glm::vec4(1, 1, 0, 1), glm::vec4(1, 0, 0, 1));
+	m_emitter->initalise(1000, 500, 1.0f, 5.0f, 0.5f, 2.5f, 0.1f, 1.0f,
+						 glm::vec4(0.5, 1, 1, 1), glm::vec4(1, 0.5, 1, 1),
+						 m_shader, "images/bubble.png");
 
 	return true;
 }

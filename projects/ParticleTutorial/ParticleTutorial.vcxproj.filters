@@ -34,4 +34,9 @@
     <None Include="shaders\ParticleTutorial.frag" />
     <None Include="shaders\ParticleTutorial.vert" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="images\bubble.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
 </Project>
