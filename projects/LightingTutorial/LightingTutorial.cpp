@@ -38,6 +38,17 @@ bool LightingTutorial::onCreate(int a_argc, char* a_argv[])
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 
+	// load shaders and link shader program
+	m_vertShader = Utility::loadShader("shaders/lit.vert", GL_VERTEX_SHADER);
+	m_fragShader = Utility::loadShader("shaders/lit.frag", GL_FRAGMENT_SHADER);
+	const char* inputs[] = { "Position" };
+	m_shader = Utility::createProgram(m_vertShader, 0, 0, 0, m_fragShader, 1, inputs);
+
+	m_fbx = new FBXFile();
+	m_fbx->load("models/stanford/Bunny.fbx");
+
+	createOpenGLBuffers(m_fbx);
+
 	return true;
 }
 
@@ -81,13 +92,86 @@ void LightingTutorial::onDraw()
 	// get window dimensions for 2D orthographic projection
 	int width = 0, height = 0;
 	glfwGetWindowSize(m_window, &width, &height);
-	Gizmos::draw2D(glm::ortho<float>(0, width, 0, height, -1.0f, 1.0f));
+	Gizmos::draw2D(glm::ortho<float>(0.0f, (float)width, 0.0f, (float)height, -1.0f, 1.0f));
+
+	// bind shader to the GPU
+	glUseProgram(m_shader);
+
+	// fetch locations of the view and projection matrices and bind them
+	unsigned int location = glGetUniformLocation(m_shader, "view");
+	glUniformMatrix4fv(location, 1, false, glm::value_ptr(viewMatrix));
+
+	location = glGetUniformLocation(m_shader, "projection");
+	glUniformMatrix4fv(location, 1, false, glm::value_ptr(m_projectionMatrix));
+
+	// bind our vertex array object and draw the mesh
+	for (unsigned int i = 0; i < m_fbx->getMeshCount(); ++i)
+	{
+		FBXMeshNode* mesh = m_fbx->getMeshByIndex(i);
+
+		unsigned int* glData = (unsigned int*)mesh->m_userData;
+
+		glBindVertexArray(glData[0]);
+		glDrawElements(GL_TRIANGLES, (unsigned int)mesh->m_indices.size(), GL_UNSIGNED_INT, 0);
+	}
 }
 
 void LightingTutorial::onDestroy()
 {
 	// clean up anything we created
 	Gizmos::destroy();
+
+	cleanupOpenGLBuffers(m_fbx);
+}
+
+void LightingTutorial::createOpenGLBuffers(FBXFile* a_fbx)
+{
+	// create the GL VAO/VBO/IBO data for meshes
+	for (unsigned int i = 0; i < a_fbx->getMeshCount(); ++i)
+	{
+		FBXMeshNode* mesh = a_fbx->getMeshByIndex(i);
+
+		// storage for the opengl data in 3 unsigned int
+		unsigned int* glData = new unsigned int[3];
+
+		glGenVertexArrays(1, &glData[0]);
+		glBindVertexArray(glData[0]);
+
+		glGenBuffers(1, &glData[1]);
+		glGenBuffers(1, &glData[2]);
+
+		glBindBuffer(GL_ARRAY_BUFFER, glData[1]);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, glData[2]);
+
+		glBufferData(GL_ARRAY_BUFFER, mesh->m_vertices.size() * sizeof(FBXVertex), mesh->m_vertices.data(), GL_STATIC_DRAW);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->m_indices.size() * sizeof(unsigned int), mesh->m_indices.data(), GL_STATIC_DRAW);
+
+		glEnableVertexAttribArray(0); // position
+		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(FBXVertex), 0);
+
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+		mesh->m_userData = glData;
+	}
+}
+
+void LightingTutorial::cleanupOpenGLBuffers(FBXFile* a_fbx)
+{
+	// bind our vertex array object and draw the mesh
+	for (unsigned int i = 0; i < a_fbx->getMeshCount(); ++i)
+	{
+		FBXMeshNode* mesh = a_fbx->getMeshByIndex(i);
+
+		unsigned int* glData = (unsigned int*)mesh->m_userData;
+
+		glDeleteVertexArrays(1, &glData[0]);
+		glDeleteBuffers(1, &glData[1]);
+		glDeleteBuffers(1, &glData[2]);
+
+		delete[] glData;
+	}
 }
 
 // main that controls the creation/destruction of an application
