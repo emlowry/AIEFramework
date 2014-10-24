@@ -29,5 +29,9 @@ protected:
 	unsigned int m_fragShader;
 	unsigned int m_shader;
 
+	glm::vec3	m_lightAmbient;
+	glm::vec3	m_lightDirection;
+	glm::vec3	m_lightColour;
+
 	FBXFile* m_fbx;
 };

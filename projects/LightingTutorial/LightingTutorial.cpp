@@ -44,6 +44,10 @@ bool LightingTutorial::onCreate(int a_argc, char* a_argv[])
 	const char* inputs[] = { "Position", "Normal" };
 	m_shader = Utility::createProgram(m_vertShader, 0, 0, 0, m_fragShader, 2, inputs);
 
+	m_lightAmbient = glm::vec3(0.0625, 0, 0.125);
+	m_lightDirection = glm::vec3(-0.48, -0.8, -0.36);
+	m_lightColour = glm::vec3(1, 0.75, 0.875);
+
 	m_fbx = new FBXFile();
 	m_fbx->load("models/stanford/Bunny.fbx");
 
@@ -104,10 +108,34 @@ void LightingTutorial::onDraw()
 	location = glGetUniformLocation(m_shader, "projection");
 	glUniformMatrix4fv(location, 1, false, glm::value_ptr(m_projectionMatrix));
 
+	// light attributes
+	location = glGetUniformLocation(m_shader, "lightAmbient");
+	glUniform3fv(location, 1, &m_lightAmbient[0]);
+	location = glGetUniformLocation(m_shader, "lightDirection");
+	glUniform3fv(location, 1, &m_lightDirection[0]);
+	location = glGetUniformLocation(m_shader, "lightColour");
+	glUniform3fv(location, 1, &m_lightColour[0]);
+	
+	// send camera position
+	location = glGetUniformLocation(m_shader, "cameraPosition");
+	glUniform3fv(location, 1, glm::value_ptr(m_cameraMatrix[3]));
+
 	// bind our vertex array object and draw the mesh
 	for (unsigned int i = 0; i < m_fbx->getMeshCount(); ++i)
 	{
 		FBXMeshNode* mesh = m_fbx->getMeshByIndex(i);
+		FBXMaterial* material = mesh->m_material;
+		location = glGetUniformLocation(m_shader, "hasMaterial");
+		glUniform1i(location, nullptr != material ? GL_TRUE : GL_FALSE);
+		if (nullptr != material)
+		{
+			location = glGetUniformLocation(m_shader, "materialAmbient");
+			glUniform4fv(location, 1, &(material->ambient[0]));
+			location = glGetUniformLocation(m_shader, "materialDiffuse");
+			glUniform4fv(location, 1, &(material->diffuse[0]));
+			location = glGetUniformLocation(m_shader, "materialSpecular");
+			glUniform4fv(location, 1, &(material->specular[0]));
+		}
 
 		unsigned int* glData = (unsigned int*)mesh->m_userData;
 
