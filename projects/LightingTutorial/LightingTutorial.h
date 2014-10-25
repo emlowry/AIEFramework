@@ -4,6 +4,22 @@
 #include "FBXFile.h"
 #include <glm/glm.hpp>
 
+// struct describing a light source
+struct Light
+{
+	glm::vec3 color = glm::vec3(1, 1, 1);
+	glm::vec3 direction = glm::vec3(0, 0, 0);	// zero vector = point light
+	glm::vec3 position = glm::vec3(0, 0, 0);
+	float power = 1;							// usually 1 if there's no attenuation
+
+	// 0 = no attenuation, otherwise intensity = power / ((distance)^(2 * attenuation))
+	float attenuation = 0;
+
+	// only used for spot lights:
+	float angle = 0;	// angle between axis and edge of spot light cone, 0 = directional light
+	float blur = 0;		// 0 = sharp cutoff, 1 = radial gradient
+};
+
 // derived application class that wraps up all globals neatly
 class LightingTutorial : public Application
 {
@@ -32,6 +48,10 @@ protected:
 	glm::vec3	m_lightAmbient;
 	glm::vec3	m_lightDirection;
 	glm::vec3	m_lightColour;
+
+	static const int MAX_LIGHTS = 10;
+	Light m_lights[MAX_LIGHTS];
+	int m_lightCount = 0;
 
 	FBXFile* m_fbx;
 };

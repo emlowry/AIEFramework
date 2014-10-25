@@ -4,6 +4,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/ext.hpp>
+#include <stdio.h>
 
 #define DEFAULT_SCREENWIDTH 1280
 #define DEFAULT_SCREENHEIGHT 720
@@ -47,6 +48,10 @@ bool LightingTutorial::onCreate(int a_argc, char* a_argv[])
 	m_lightAmbient = glm::vec3(0.0625, 0, 0.125);
 	m_lightDirection = glm::vec3(-0.48, -0.8, -0.36);
 	m_lightColour = glm::vec3(1, 0.75, 0.875);
+
+	m_lights[0].color = glm::vec3(1, 0.75, 0.875);
+	m_lights[0].direction = glm::vec3(-0.48, -0.8, -0.36);
+	m_lightCount = 1;
 
 	m_fbx = new FBXFile();
 	m_fbx->load("models/stanford/Bunny.fbx");
@@ -115,6 +120,33 @@ void LightingTutorial::onDraw()
 	glUniform3fv(location, 1, &m_lightDirection[0]);
 	location = glGetUniformLocation(m_shader, "lightColour");
 	glUniform3fv(location, 1, &m_lightColour[0]);
+	char buffer[50];
+	for (int i = 0; i < m_lightCount; ++i)
+	{
+		std::sprintf(buffer, "lights[%d].color", i);
+		location = glGetUniformLocation(m_shader, buffer);
+		glUniform3fv(location, 1, &(m_lights[i].color[0]));
+		std::sprintf(buffer, "lights[%d].direction", i);
+		location = glGetUniformLocation(m_shader, buffer);
+		glUniform3fv(location, 1, &(m_lights[i].direction[0]));
+		std::sprintf(buffer, "lights[%d].position", i);
+		location = glGetUniformLocation(m_shader, buffer);
+		glUniform3fv(location, 1, &(m_lights[i].position[0]));
+		std::sprintf(buffer, "lights[%d].power", i);
+		location = glGetUniformLocation(m_shader, buffer);
+		glUniform1f(location, m_lights[i].power);
+		std::sprintf(buffer, "lights[%d].attenuation", i);
+		location = glGetUniformLocation(m_shader, buffer);
+		glUniform1f(location, m_lights[i].attenuation);
+		std::sprintf(buffer, "lights[%d].angle", i);
+		location = glGetUniformLocation(m_shader, buffer);
+		glUniform1f(location, m_lights[i].angle);
+		std::sprintf(buffer, "lights[%d].blur", i);
+		location = glGetUniformLocation(m_shader, buffer);
+		glUniform1f(location, m_lights[i].blur);
+	}
+	location = glGetUniformLocation(m_shader, "lightCount");
+	glUniform1i(location, m_lightCount);
 	
 	// send camera position
 	location = glGetUniformLocation(m_shader, "cameraPosition");
@@ -150,6 +182,7 @@ void LightingTutorial::onDestroy()
 	Gizmos::destroy();
 
 	cleanupOpenGLBuffers(m_fbx);
+	m_lightCount = 0;
 }
 
 void LightingTutorial::createOpenGLBuffers(FBXFile* a_fbx)
