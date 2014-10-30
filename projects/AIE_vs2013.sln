@@ -19,6 +19,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ParticleTutorial", "Particl
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LightingTutorial", "LightingTutorial\LightingTutorial.vcxproj", "{1E422F4D-DB2F-454A-92DA-5950BA36BE8A}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GPUParticleTutorial", "GPUParticleTutorial\GPUParticleTutorial.vcxproj", "{1249A44F-628E-4266-AFAA-3861EAD2E2ED}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -57,6 +59,10 @@ Global
 		{1E422F4D-DB2F-454A-92DA-5950BA36BE8A}.Debug|Win32.Build.0 = Debug|Win32
 		{1E422F4D-DB2F-454A-92DA-5950BA36BE8A}.Release|Win32.ActiveCfg = Release|Win32
 		{1E422F4D-DB2F-454A-92DA-5950BA36BE8A}.Release|Win32.Build.0 = Release|Win32
+		{1249A44F-628E-4266-AFAA-3861EAD2E2ED}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1249A44F-628E-4266-AFAA-3861EAD2E2ED}.Debug|Win32.Build.0 = Debug|Win32
+		{1249A44F-628E-4266-AFAA-3861EAD2E2ED}.Release|Win32.ActiveCfg = Release|Win32
+		{1249A44F-628E-4266-AFAA-3861EAD2E2ED}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
