@@ -10,10 +10,10 @@ struct Light
 	glm::vec3 color = glm::vec3(1, 1, 1);
 	glm::vec3 direction = glm::vec3(0, 0, 0);	// zero vector = point light
 	glm::vec3 position = glm::vec3(0, 0, 0);
-	float power = 1;							// usually 1 if there's no attenuation
 
-	// 0 = no attenuation, otherwise intensity = power / ((distance)^(2 * attenuation))
-	float attenuation = 0;
+	// intensity = power / ((distance)^(2 * attenuation))
+	float power = 1;		// usually 1 if there's no attenuation
+	float attenuation = 0;	// 0 means no attenuation
 
 	// only used for spot lights:
 	float angle = 0;	// angle between axis and edge of spot light cone, 0 = directional light
@@ -46,8 +46,6 @@ protected:
 	unsigned int m_shader;
 
 	glm::vec3	m_lightAmbient;
-	glm::vec3	m_lightDirection;
-	glm::vec3	m_lightColour;
 
 	static const int MAX_LIGHTS = 10;
 	Light m_lights[MAX_LIGHTS];

@@ -6,10 +6,10 @@ struct Light
 	vec3 color;
 	vec3 direction;	// zero vector = point light
 	vec3 position;
-	float power;	// usually 1 if there's no attenuation
 
-	// 0 = no attenuation, otherwise intensity = power / ((distance)^(2 * attenuation))
-	float attenuation;
+	// intensity = power / ((distance)^(2 * attenuation))
+	float power;		// usually 1 if there's no attenuation
+	float attenuation;	// 0 means no attenuation
 
 	// only used for spot lights:
 	float angle;	// angle between axis and edge of spot light cone, 0 = directional light

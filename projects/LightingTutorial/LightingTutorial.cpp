@@ -46,21 +46,20 @@ bool LightingTutorial::onCreate(int a_argc, char* a_argv[])
 	m_shader = Utility::createProgram(m_vertShader, 0, 0, 0, m_fragShader, 2, inputs);
 
 	m_lightAmbient = glm::vec3(0.0625, 0, 0.125);
-	m_lightDirection = glm::vec3(-0.48, -0.8, -0.36);
-	m_lightColour = glm::vec3(1, 0.75, 0.875);
 
 	m_lights[0].color = glm::vec3(1, 0.75, 0.875);
 	m_lights[0].position = glm::vec3(-2.4, 1.8, 4.0);
-	m_lights[0].attenuation = 1;
+	m_lights[0].attenuation = .5;
 	m_lights[1].color = glm::vec3(1, 0.875, 0.75);
 	m_lights[1].direction = glm::vec3(-0.48, -0.8, -0.36);
 	m_lights[1].position = glm::vec3(3.6, 6.0, 2.7);
 	m_lights[1].attenuation = 1.5;
 	m_lights[2].color = glm::vec3(0.75, 0.875, 1);
-	m_lights[2].direction = glm::vec3(0.48, -0.8, -0.36);
-	m_lights[2].position = glm::vec3(-3.6, 6.0, 2.7);
+	m_lights[2].direction = glm::vec3(0.36, -0.8, -0.48);
+	m_lights[2].position = glm::vec3(-2.7, 6.0, 3.6);
 	m_lights[2].attenuation = 1;
-	m_lights[2].angle = 30;
+	m_lights[2].angle = 45;
+	m_lights[2].blur = .1;
 	m_lightCount = 3;
 
 	m_fbx = new FBXFile();
@@ -126,10 +125,6 @@ void LightingTutorial::onDraw()
 	// light attributes
 	location = glGetUniformLocation(m_shader, "lightAmbient");
 	glUniform3fv(location, 1, &m_lightAmbient[0]);
-	location = glGetUniformLocation(m_shader, "lightDirection");
-	glUniform3fv(location, 1, &m_lightDirection[0]);
-	location = glGetUniformLocation(m_shader, "lightColour");
-	glUniform3fv(location, 1, &m_lightColour[0]);
 	char buffer[50];
 	for (int i = 0; i < m_lightCount; ++i)
 	{
