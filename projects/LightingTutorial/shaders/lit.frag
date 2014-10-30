@@ -24,9 +24,6 @@ in vec3 normal;
 
 uniform vec3 lightAmbient = vec3(0, 0, 0);
 
-uniform vec3 lightDirection;
-uniform vec3 lightColour;
-
 uniform Light lights[MAX_LIGHTS];
 uniform int lightCount = 0;
 
@@ -178,7 +175,6 @@ void main()
 	vec3 E = normalize( cameraPosition - position );
 	
 	// sum individual diffuse and specular light sources
-	Light light = Light(lightColour, lightDirection, vec3(0,0,0), 1, 0, 0, 0);
 	vec4 currentDiffuse;
 	vec4 currentSpecular;
 	vec3 gloss = vec3(0, 0, 0);
@@ -186,50 +182,21 @@ void main()
 	{
 		currentDiffuse = diffuse;
 		currentSpecular = specular;
-		calculateLightContributions(N, E, light, currentDiffuse, currentSpecular);
+		calculateLightContributions(N, E, lights[i], currentDiffuse, currentSpecular);
 		matte += currentDiffuse.rgb;
 		gloss += currentSpecular.rgb * currentSpecular.a;
 	}
 
 	// combine ambient/diffuse with specular
-	float glossAlpha = max(gloss.r, gloss.g, gloss.b);
-	if (diffuse.a >= 1)
+	float glossAlpha = max(max(max(gloss.r, gloss.g), gloss.b), 0);
+	float matteAlpha = max(min(diffuse.a, 1), 0);
+	float finalAlpha = min(1, matteAlpha + glossAlpha);
+	if (finalAlpha <= 0)
 	{
-		gl_FragColor = vec4(matte + gloss, 1);
-	}
-	else if (diffuse.a <=0)
-	{
-		if (glossAlpha >= 1)
-		{
-			gl_FragColor = vec4(gloss, 1);
-		}
-		else if (glossAlpha > 0)
-		{
-			gl_FragColor = vec4(gloss / glossAlpha, glossAlpha);
-		}
-		else
-		{
-			gl_FragColor = vec4(matte, 0);
-		}
-	}
-	else if (glossAlpha >= 1)
-	{
-		gl_FragColor = vec4((matte / diffuse.a) + gloss, 1);
-	}
-	else if (glossAlpha > 0)
-	{
-		
+		gl_FragColor = vec4(gloss + matte, 0);
 	}
 	else
 	{
-		gl_FragColor = vec4(matte, diffuse.a);
+		gl_FragColor = vec4((gloss + (matte * matteAlpha)) / finalAlpha, finalAlpha);
 	}
-
-	float alpha = max(diffuse.a, specular.a);
-	if (alpha > 0)
-	{
-		diffuse = vec4(diffuse.rgb * diffuse.a / alpha, alpha);
-		specular = vec4(specular.rgb * specular.a / alpha, 0);
-	}
-	gl_FragColor = ambient + diffuse + specular;
 }

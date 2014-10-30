@@ -50,8 +50,18 @@ bool LightingTutorial::onCreate(int a_argc, char* a_argv[])
 	m_lightColour = glm::vec3(1, 0.75, 0.875);
 
 	m_lights[0].color = glm::vec3(1, 0.75, 0.875);
-	m_lights[0].direction = glm::vec3(-0.48, -0.8, -0.36);
-	m_lightCount = 1;
+	m_lights[0].position = glm::vec3(-2.4, 1.8, 4.0);
+	m_lights[0].attenuation = 1;
+	m_lights[1].color = glm::vec3(1, 0.875, 0.75);
+	m_lights[1].direction = glm::vec3(-0.48, -0.8, -0.36);
+	m_lights[1].position = glm::vec3(3.6, 6.0, 2.7);
+	m_lights[1].attenuation = 1.5;
+	m_lights[2].color = glm::vec3(0.75, 0.875, 1);
+	m_lights[2].direction = glm::vec3(0.48, -0.8, -0.36);
+	m_lights[2].position = glm::vec3(-3.6, 6.0, 2.7);
+	m_lights[2].attenuation = 1;
+	m_lights[2].angle = 30;
+	m_lightCount = 3;
 
 	m_fbx = new FBXFile();
 	m_fbx->load("models/stanford/Bunny.fbx");
