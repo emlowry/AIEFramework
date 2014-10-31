@@ -178,14 +178,18 @@ void MultipleTextures_Tutorial::InitFBXSceneResource(FBXFile *a_pScene)
 		glEnableVertexAttribArray(0);
 		glEnableVertexAttribArray(1);
 		glEnableVertexAttribArray(2);
+		glEnableVertexAttribArray(3);
+		glEnableVertexAttribArray(4);
 
 		// tell our shaders where the information within our buffers lie
 		// eg: attrubute 0 is expected to be the verticy's position. it should be 4 floats, representing xyzw
 		// eg: attrubute 1 is expected to be the verticy's color. it should be 4 floats, representing rgba
 		// eg: attrubute 2 is expected to be the verticy's texture coordinate. it should be 2 floats, representing U and V
 		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(FBXVertex), (char *)FBXVertex::PositionOffset);
-		glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(FBXVertex), (char *)FBXVertex::ColourOffset);
-		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(FBXVertex), (char *)FBXVertex::TexCoord1Offset);
+		glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(FBXVertex), (char *)FBXVertex::NormalOffset);
+		glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(FBXVertex), (char *)FBXVertex::TangentOffset);
+		glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(FBXVertex), (char *)FBXVertex::BiNormalOffset);
+		glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, sizeof(FBXVertex), (char *)FBXVertex::TexCoord1Offset);
 
 		// finally, where done describing our mesh to the shader
 		// we can describe the next mesh
@@ -208,16 +212,25 @@ void MultipleTextures_Tutorial::RenderFBXSceneResource(FBXFile *a_pScene, glm::m
 	glUseProgram(m_shader);
 
 	// get the location of uniforms on the shader
-	GLint uDiffuseTexture = glGetUniformLocation(m_shader, "DiffuseTexture");
-	GLint uDiffuseColor = glGetUniformLocation(m_shader, "DiffuseColor");
+	GLint uModelViewProjection = glGetUniformLocation(m_shader, "MVP");
+	GLint uModelView = glGetUniformLocation(m_shader, "MV");
+	GLint uNormalMatrix = glGetUniformLocation(m_shader, "NormalMatrix");
 
-	GLint uModel = glGetUniformLocation(m_shader, "Model");
-	GLint uView = glGetUniformLocation(m_shader, "View");
-	GLint uProjection = glGetUniformLocation(m_shader, "Projection");
+	GLint uLightPosition = glGetUniformLocation(m_shader, "LightPosition");
+	GLint uLightColor = glGetUniformLocation(m_shader, "LightColor");
+	GLint uAmbientLightColor = glGetUniformLocation(m_shader, "AmbientLightColor");
+
+	GLint uDiffuseTexture = glGetUniformLocation(m_shader, "DiffuseTexture");
+	GLint uSpecularTexture = glGetUniformLocation(m_shader, "SpecularTexture");
+	GLint uNormalTexture = glGetUniformLocation(m_shader, "NormalTexture");
 
 	GLint uDecayTexture = glGetUniformLocation(m_shader, "DecayTexture");
 	GLint uDecayValue = glGetUniformLocation(m_shader, "DecayValue");
 	GLint uMetallicTexture = glGetUniformLocation(m_shader, "MetallicTexture");
+
+	glUniform3f(uLightPosition, 3.6f, 8.0f, 4.8f);
+	glUniform3f(uLightColor, 1.0f, 1.0f, 1.0f);
+	glUniform3f(uAmbientLightColor, 0.1f, 0.1f, 0.1f);
 
 	// for each mesh in the model...
 	for (unsigned int i = 0; i<a_pScene->getMeshCount(); ++i)
@@ -234,23 +247,34 @@ void MultipleTextures_Tutorial::RenderFBXSceneResource(FBXFile *a_pScene, glm::m
 		glBindTexture(GL_TEXTURE_2D, mesh->m_material->textures[FBXMaterial::DiffuseTexture]->handle);
 
 		glActiveTexture(GL_TEXTURE2);
-		glBindTexture(GL_TEXTURE_2D, m_decayTexture);
+		glBindTexture(GL_TEXTURE_2D, mesh->m_material->textures[FBXMaterial::SpecularTexture]->handle);
 
 		glActiveTexture(GL_TEXTURE3);
+		glBindTexture(GL_TEXTURE_2D, mesh->m_material->textures[FBXMaterial::NormalTexture]->handle);
+
+		glActiveTexture(GL_TEXTURE4);
+		glBindTexture(GL_TEXTURE_2D, m_decayTexture);
+
+		glActiveTexture(GL_TEXTURE5);
 		glBindTexture(GL_TEXTURE_2D, m_metallicTexture);
 
 		// tell the shader which texture to use
 		glUniform1i(uDiffuseTexture, 1);
-		glUniform1i(uDecayTexture, 2);
-		glUniform1i(uMetallicTexture, 3);
+		glUniform1i(uSpecularTexture, 2);
+		glUniform1i(uNormalTexture, 3);
+		glUniform1i(uDecayTexture, 4);
+		glUniform1i(uMetallicTexture, 5);
 
 		// tell the shader the decay value
 		glUniform1f(uDecayValue, m_decayValue);
 
-		// send the Model, View and Projection Matrices to the shader
-		glUniformMatrix4fv(uModel, 1, false, glm::value_ptr(mesh->m_globalTransform));
-		glUniformMatrix4fv(uView, 1, false, glm::value_ptr(a_view));
-		glUniformMatrix4fv(uProjection, 1, false, glm::value_ptr(a_projection));
+		// send the ModelViewProjection, ModelView, and Normal Matrices to the shader
+		glm::mat4 modelView = mesh->m_globalTransform * a_view;
+		glm::mat4 modelViewProjection = mesh->m_globalTransform * a_projection;
+		glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(modelView)));
+		glUniformMatrix4fv(uModelViewProjection, 1, false, glm::value_ptr(modelViewProjection));
+		glUniformMatrix4fv(uModelView, 1, false, glm::value_ptr(modelView));
+		glUniformMatrix4fv(uNormalMatrix, 1, false, glm::value_ptr(normalMatrix));
 
 		// bind our vertex array object
 		// remember in the initialise function, we bound the VAO and IBO to the VAO
