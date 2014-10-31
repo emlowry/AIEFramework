@@ -86,10 +86,18 @@
     <None Include="Models\soulspear\soulspear.fbx" />
     <None Include="shaders\MultipleTextures_Tutorial.frag" />
     <None Include="shaders\MultipleTextures_Tutorial.vert" />
+    <None Include="shaders\skybox.frag" />
+    <None Include="shaders\skybox.vert" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="images\bottom.png" />
     <Image Include="images\decay.png" />
+    <Image Include="images\east.png" />
+    <Image Include="images\north.png" />
     <Image Include="images\soulspear_metalic_diffuse.png" />
+    <Image Include="images\south.png" />
+    <Image Include="images\top.png" />
+    <Image Include="images\west.png" />
     <Image Include="Models\soulspear\soulspear_diffuse.tga" />
     <Image Include="Models\soulspear\soulspear_normal.tga" />
     <Image Include="Models\soulspear\soulspear_specular.tga" />

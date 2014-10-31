@@ -4,6 +4,8 @@ in vec2 vTexCoord1;
 in vec3 vNormal; 
 in vec3 vLightDir;
 
+uniform mat3 NormalMatrix;
+
 uniform vec3 AmbientLightColor;
 uniform vec3 LightColor;
 
@@ -14,6 +16,9 @@ uniform sampler2D SpecularTexture;
 uniform float DecayValue;
 uniform sampler2D DecayTexture;
 uniform sampler2D MetallicTexture;
+
+uniform samplerCube SkyBox;
+uniform vec3 CameraForward;
 
 out vec4 outColor;
 
@@ -49,10 +54,19 @@ void main()
 	// specular hilight
 	vec3 reflection = normalize( reflect( -normalize(vLightDir), N));
 	float spec = max(0.0, dot( reflection, N));
-	float fSpec = pow(spec, 5.0);
+	float fSpec = pow(spec, specularColor.a);//5.0);
 
 	// apply the specular.
-	finalColor.rgb += vec3(fSpec, fSpec, fSpec) * specularColor.xyz;	
+	finalColor.rgb += specularColor.rgb * fSpec;
+
+	// skybox reflection coordinates
+	vec3 WN = normalize((2.0 * normalColor - 1.0) + (inverse(NormalMatrix) * vNormal));
+	vec3 skyCoord = -reflect(CameraForward, WN);
+	skyCoord.x *= -1;
+	skyCoord /= max(max(abs(skyCoord.x), abs(skyCoord.y)), abs(skyCoord.z));
+
+	// apply reflection
+	finalColor.rgb += texture(SkyBox, skyCoord).rgb * specularColor.rgb * specularColor.a;
 
 	outColor = finalColor;
 }

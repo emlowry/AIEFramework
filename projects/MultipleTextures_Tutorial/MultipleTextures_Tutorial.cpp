@@ -38,7 +38,7 @@ bool MultipleTextures_Tutorial::onCreate(int a_argc, char* a_argv[])
 	glClearColor(0.25f,0.25f,0.25f,1);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
-
+	
 	// load the shader
 	const char* aszInputs[] = { "Position", "Normal", "Tangent", "BiNormal", "TexCoord1" };
 	const char* aszOutputs[] = { "outColour" };
@@ -47,7 +47,7 @@ bool MultipleTextures_Tutorial::onCreate(int a_argc, char* a_argv[])
 	GLuint vshader = Utility::loadShader("shaders/MultipleTextures_Tutorial.vert", GL_VERTEX_SHADER);
 	GLuint pshader = Utility::loadShader("shaders/MultipleTextures_Tutorial.frag", GL_FRAGMENT_SHADER);
 
-	m_shader = Utility::createProgram(vshader, 0, 0, 0, pshader, 3, aszInputs, 1, aszOutputs);
+	m_shader = Utility::createProgram(vshader, 0, 0, 0, pshader, 5, aszInputs, 1, aszOutputs);
 
 	// free our shader once we built our program
 	glDeleteShader(vshader);
@@ -62,6 +62,65 @@ bool MultipleTextures_Tutorial::onCreate(int a_argc, char* a_argv[])
 	m_decayValue = 0;
 	m_decayTexture = loadTexture("images/decay.png");
 	m_metallicTexture = loadTexture("images/soulspear_metalic_diffuse.png", GL_RGB);
+	
+	// load cube map
+	m_cubemap_texture = loadCube("images/top.png", "images/bottom.png",
+								 "images/north.png", "images/south.png",
+								 "images/east.png", "images/west.png");
+
+	// Genorate our cube
+	// cube vertices for vertex buffer object
+	float cube_vertices[] =
+	{
+		//	x,	  y,	z
+		-1.0,	1.0,	1.0,
+		-1.0,	-1.0,	1.0,
+		1.0,	-1.0,	1.0,
+		1.0,	1.0,	1.0,
+		-1.0,	1.0,	-1.0,
+		-1.0,	-1.0,	-1.0,
+		1.0,	-1.0,	-1.0,
+		1.0,	1.0,	-1.0,
+	};
+
+	unsigned short cube_indices[] =
+	{
+		0, 2, 1, 0, 3, 2,	// +Z face
+		3, 6, 2, 3, 7, 6,	// +X face
+		7, 5, 6, 7, 4, 5,	// -Z face
+		4, 1, 5, 4, 0, 1,	// -X face
+		0, 7, 3, 0, 4, 7,	// +Y face
+		1, 2, 6, 1, 6, 5,	// -Y face
+	};
+
+	// OPENGL: genorate the VBO, IBO and VAO
+	glGenBuffers(1, &m_skybox_vbo);
+	glGenBuffers(1, &m_skybox_ibo);
+	glGenVertexArrays(1, &m_skybox_vao);
+
+	// send the data
+	glBindVertexArray(m_skybox_vao);
+	glBindBuffer(GL_ARRAY_BUFFER, m_skybox_vbo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_skybox_ibo);
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
+
+	// setup vertex attributes
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glBindVertexArray(0);
+
+	// load the skybox shader
+	const char* aszInputs2[] = { "Position" };
+	const char* aszOutputs2[] = { "outColour" };
+
+	// load shader internally calls glCreateShader...
+	GLuint vshader2 = Utility::loadShader("shaders/skybox.vert", GL_VERTEX_SHADER);
+	GLuint pshader2 = Utility::loadShader("shaders/skybox.frag", GL_FRAGMENT_SHADER);
+
+	m_skybox_shader = Utility::createProgram(vshader2, 0, 0, 0, pshader2, 1, aszInputs2, 1, aszOutputs2);
 
 	return true;
 }
@@ -92,7 +151,7 @@ void MultipleTextures_Tutorial::onUpdate(float a_deltaTime)
 	// quit our application when escape is pressed
 	if (glfwGetKey(m_window,GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		quit();
-
+	
 	if (glfwGetKey(m_window, GLFW_KEY_LEFT) == GLFW_PRESS) m_decayValue -= a_deltaTime;
 	if (glfwGetKey(m_window, GLFW_KEY_RIGHT) == GLFW_PRESS) m_decayValue += a_deltaTime;
 
@@ -107,6 +166,25 @@ void MultipleTextures_Tutorial::onDraw()
 	
 	// get the view matrix from the world-space camera matrix
 	glm::mat4 viewMatrix = glm::inverse( m_cameraMatrix );
+
+	// draw the skybox
+	glUseProgram(m_skybox_shader);
+
+	glm::mat4 skyView = viewMatrix;
+	skyView[3] = glm::vec4(0, 0, 0, 1);
+	glm::mat4 MVP = m_projectionMatrix * skyView * glm::scale(glm::vec3(20, 20, 20));
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, m_cubemap_texture);
+
+	glUniformMatrix4fv(glGetUniformLocation(m_skybox_shader, "ModelViewProjection"), 1, false, glm::value_ptr(MVP));
+	glUniform1i(glGetUniformLocation(m_skybox_shader, "CubeMap"), 1);
+
+	glBindVertexArray(m_skybox_vao);
+	glDrawElements(GL_TRIANGLES, 72, GL_UNSIGNED_SHORT, 0);
+
+	// clear the depthbuffer
+	glClear(GL_DEPTH_BUFFER_BIT);
 	
 	// draw the gizmos from this frame
 	Gizmos::draw(m_projectionMatrix, viewMatrix);
@@ -117,7 +195,6 @@ void MultipleTextures_Tutorial::onDraw()
 	Gizmos::draw2D(glm::ortho<float>(0.0f, (float)width, 0.0f, (float)height, -1.0f, 1.0f));
 
 	RenderFBXSceneResource(m_fbx, viewMatrix, m_projectionMatrix);
-
 }
 
 void MultipleTextures_Tutorial::onDestroy()
@@ -125,8 +202,9 @@ void MultipleTextures_Tutorial::onDestroy()
 	// clean up anything we created
 	Gizmos::destroy();
 
-	glDeleteShader(m_shader);
-
+	//glDeleteShader(m_shader);
+	glDeleteShader(m_skybox_shader);
+	
 	DestroyFBXSceneResource(m_fbx);
 	m_fbx->unload();
 	delete m_fbx;
@@ -136,7 +214,14 @@ void MultipleTextures_Tutorial::onDestroy()
 	if (0 != m_decayTexture)
 	{
 		glDeleteTextures(1, &m_decayTexture);
+	}
+	if (0 != m_metallicTexture)
+	{
 		glDeleteTextures(1, &m_metallicTexture);
+	}
+	if (0 != m_cubemap_texture)
+	{
+		glDeleteTextures(1, &m_cubemap_texture);
 	}
 }
 
@@ -228,9 +313,16 @@ void MultipleTextures_Tutorial::RenderFBXSceneResource(FBXFile *a_pScene, glm::m
 	GLint uDecayValue = glGetUniformLocation(m_shader, "DecayValue");
 	GLint uMetallicTexture = glGetUniformLocation(m_shader, "MetallicTexture");
 
+	GLint uSkyBox = glGetUniformLocation(m_shader, "SkyBox");
+	GLint uCameraForward = glGetUniformLocation(m_shader, "CameraForward");
+
 	glUniform3f(uLightPosition, 3.6f, 8.0f, 4.8f);
 	glUniform3f(uLightColor, 1.0f, 1.0f, 1.0f);
 	glUniform3f(uAmbientLightColor, 0.1f, 0.1f, 0.1f);
+
+	glActiveTexture(GL_TEXTURE6);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, m_cubemap_texture);
+	glUniform1i(uSkyBox, 6);
 
 	// for each mesh in the model...
 	for (unsigned int i = 0; i<a_pScene->getMeshCount(); ++i)
@@ -272,9 +364,14 @@ void MultipleTextures_Tutorial::RenderFBXSceneResource(FBXFile *a_pScene, glm::m
 		glm::mat4 modelView = a_view * mesh->m_globalTransform;
 		glm::mat4 modelViewProjection = a_projection * modelView;
 		glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(modelView)));
+
 		glUniformMatrix4fv(uModelViewProjection, 1, false, glm::value_ptr(modelViewProjection));
 		glUniformMatrix4fv(uModelView, 1, false, glm::value_ptr(modelView));
 		glUniformMatrix3fv(uNormalMatrix, 1, false, glm::value_ptr(normalMatrix));
+
+		glm::vec3 cameraForward = glm::vec3(0, 0, 1);
+		cameraForward = glm::inverse(normalMatrix) * cameraForward;
+		glUniform3fv(uCameraForward, 1, glm::value_ptr(cameraForward));
 
 		// bind our vertex array object
 		// remember in the initialise function, we bound the VAO and IBO to the VAO
@@ -362,6 +459,67 @@ unsigned int MultipleTextures_Tutorial::loadTexture(const char* a_fileName, GLen
 
 	// return texture handle
 	return textureID;
+}
+
+unsigned int MultipleTextures_Tutorial::loadCube(const char* a_topFileName,
+												 const char* a_bottomFileName,
+												 const char* a_northFileName,
+												 const char* a_southFileName,
+												 const char* a_eastFileName,
+												 const char* a_westFileName,
+												 GLenum a_topFormat,
+												 GLenum a_bottomFormat,
+												 GLenum a_northFormat,
+												 GLenum a_southFormat,
+												 GLenum a_eastFormat,
+												 GLenum a_westFormat)
+{
+	// cube mapping must be enabled
+	glEnable(GL_TEXTURE_CUBE_MAP);
+
+	// genorate an  OpenGL texture and bind it as a GL_TEXTURE_CUBE_MAP
+	unsigned int ID = 0;
+	glGenTextures(1, &ID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, ID);
+
+	// set some texture parameters...
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	// temporary width and height variables
+	int width, height, format;
+
+	// get the pixels for each of face of the cube and send the data to the graphics card
+	unsigned char *pixels_top = stbi_load(a_topFileName, &width, &height, &format, 0);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 0, format, width, height, 0, a_topFormat, GL_UNSIGNED_BYTE, pixels_top);
+
+	unsigned char *pixels_bottom = stbi_load(a_bottomFileName, &width, &height, &format, 0);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, format, width, height, 0, a_bottomFormat, GL_UNSIGNED_BYTE, pixels_bottom);
+
+	unsigned char *pixels_north = stbi_load(a_northFileName, &width, &height, &format, 0);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 0, format, width, height, 0, a_northFormat, GL_UNSIGNED_BYTE, pixels_north);
+
+	unsigned char *pixels_south = stbi_load(a_southFileName, &width, &height, &format, 0);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, format, width, height, 0, a_southFormat, GL_UNSIGNED_BYTE, pixels_south);
+
+	unsigned char *pixels_west = stbi_load(a_westFileName, &width, &height, &format, 0);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, format, width, height, 0, a_westFormat, GL_UNSIGNED_BYTE, pixels_west);
+
+	unsigned char *pixels_east = stbi_load(a_eastFileName, &width, &height, &format, 0);
+	glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 0, format, width, height, 0, a_eastFormat, GL_UNSIGNED_BYTE, pixels_east);
+
+	// delete the original image data
+	free(pixels_top);
+	free(pixels_bottom);
+	free(pixels_north);
+	free(pixels_south);
+	free(pixels_east);
+	free(pixels_west);
+
+	return ID;
 }
 
 // main that controls the creation/destruction of an application

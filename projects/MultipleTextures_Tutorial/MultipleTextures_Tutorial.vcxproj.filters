@@ -28,6 +28,8 @@
     <None Include="Models\soulspear\soulspear.fbx" />
     <None Include="shaders\MultipleTextures_Tutorial.frag" />
     <None Include="shaders\MultipleTextures_Tutorial.vert" />
+    <None Include="shaders\skybox.vert" />
+    <None Include="shaders\skybox.frag" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Models\soulspear\soulspear_diffuse.tga" />
@@ -37,6 +39,24 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="images\soulspear_metalic_diffuse.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="images\bottom.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="images\east.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="images\north.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="images\south.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="images\top.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="images\west.png">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

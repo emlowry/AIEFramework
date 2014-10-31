@@ -33,6 +33,18 @@ protected:
 	void DestroyFBXSceneResource(FBXFile *a_pScene);
 
 	unsigned int loadTexture(const char* a_fileName, GLenum a_format = GL_RGBA);
+	unsigned int loadCube(const char* a_topFileName,
+						  const char* a_bottomFileName,
+						  const char* a_northFileName,
+						  const char* a_southFileName,
+						  const char* a_eastFileName,
+						  const char* a_westFileName,
+						  GLenum a_topFormat = GL_RGBA,
+						  GLenum a_bottomFormat = GL_RGBA,
+						  GLenum a_northFormat = GL_RGBA,
+						  GLenum a_southFormat = GL_RGBA,
+						  GLenum a_eastFormat = GL_RGBA,
+						  GLenum a_westFormat = GL_RGBA);
 
 	glm::mat4	m_cameraMatrix;
 	glm::mat4	m_projectionMatrix;
@@ -43,4 +55,10 @@ protected:
 	unsigned int m_decayTexture;
 	float m_decayValue;
 	unsigned int m_metallicTexture;
+
+	unsigned int m_cubemap_texture;
+	unsigned int m_skybox_vao;
+	unsigned int m_skybox_vbo;
+	unsigned int m_skybox_ibo;
+	unsigned int m_skybox_shader;
 };
