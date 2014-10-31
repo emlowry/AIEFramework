@@ -40,7 +40,7 @@ bool MultipleTextures_Tutorial::onCreate(int a_argc, char* a_argv[])
 	glEnable(GL_CULL_FACE);
 
 	// load the shader
-	const char* aszInputs[] = { "Position", "Color", "TexCoord1" };
+	const char* aszInputs[] = { "Position", "Normal", "Tangent", "BiNormal", "TexCoord1" };
 	const char* aszOutputs[] = { "outColour" };
 
 	// load shader internally calls glCreateShader...
@@ -269,12 +269,12 @@ void MultipleTextures_Tutorial::RenderFBXSceneResource(FBXFile *a_pScene, glm::m
 		glUniform1f(uDecayValue, m_decayValue);
 
 		// send the ModelViewProjection, ModelView, and Normal Matrices to the shader
-		glm::mat4 modelView = mesh->m_globalTransform * a_view;
-		glm::mat4 modelViewProjection = mesh->m_globalTransform * a_projection;
+		glm::mat4 modelView = a_view * mesh->m_globalTransform;
+		glm::mat4 modelViewProjection = a_projection * modelView;
 		glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(modelView)));
 		glUniformMatrix4fv(uModelViewProjection, 1, false, glm::value_ptr(modelViewProjection));
 		glUniformMatrix4fv(uModelView, 1, false, glm::value_ptr(modelView));
-		glUniformMatrix4fv(uNormalMatrix, 1, false, glm::value_ptr(normalMatrix));
+		glUniformMatrix3fv(uNormalMatrix, 1, false, glm::value_ptr(normalMatrix));
 
 		// bind our vertex array object
 		// remember in the initialise function, we bound the VAO and IBO to the VAO

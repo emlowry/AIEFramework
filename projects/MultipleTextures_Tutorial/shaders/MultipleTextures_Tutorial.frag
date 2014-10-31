@@ -24,7 +24,7 @@ void main()
 
 	// get the color from our textures
 	vec3 normalColor	= texture( NormalTexture, vTexCoord1).xyz;
-	vec4 diffuseColor	= ( texture2D( DecayTexture, vTexCoord1 ).r < DecayValue )
+	vec4 diffuseColor	= ( 1.0 == DecayValue || texture2D( DecayTexture, vTexCoord1 ).r < DecayValue )
 						  ? texture2D( DiffuseTexture, vTexCoord1 )
 						  : texture2D( MetallicTexture, vTexCoord1 );
 	vec4 specularColor	= texture( SpecularTexture,vTexCoord1);
@@ -44,6 +44,7 @@ void main()
 
 	// Add the diffuse contribution blended with the standard texture lookup and add in the ambient light on top
 	finalColor.rgb = (diffuseIntensity * LightColor.rgb) * diffuseColor.rgb + ambientColor.rgb;
+	finalColor.a = diffuseColor.a;
  
 	// specular hilight
 	vec3 reflection = normalize( reflect( -normalize(vLightDir), N));
