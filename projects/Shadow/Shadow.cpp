@@ -179,11 +179,11 @@ void Shadow::createShadowBuffer()
 void Shadow::setUpLightAndShadowMatrix(float count)
 {
 	// setup light direction and shadow matrix
-	glm::vec3 lightPosition = glm::vec3(1.0f, 1.0f, 0);
+	glm::vec3 lightPosition = glm::vec3(10.0f, 10.0f, 5.0f);
 	m_lightDirection = glm::normalize(glm::vec4(-lightPosition, 0));
 
 	glm::mat4 depthViewMatrix = glm::lookAt(lightPosition, glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-	glm::mat4 depthProjectionMatrix = glm::ortho<float>(-20, 20, -20, 20, 0, 20);
+	glm::mat4 depthProjectionMatrix = glm::ortho<float>(-40, 40, -40, 40, 0, 40);
 	m_shadowProjectionViewMatrix = depthProjectionMatrix * depthViewMatrix;
 }
 
@@ -227,7 +227,7 @@ void Shadow::renderShadowMap()
 	glUseProgram(m_shadowShader);
 	glCullFace(GL_FRONT);
 
-	unsigned int location = glGetUniformLocation(m_2dprogram, "lightProjectionViewWorld");
+	unsigned int location = glGetUniformLocation(m_shadowShader, "lightProjectionViewWorld");
 	glUniformMatrix4fv(location, 1, false, glm::value_ptr(m_shadowProjectionViewMatrix));
 
 	glActiveTexture(GL_TEXTURE0);
