@@ -27,6 +27,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TesselationTutorial", "Tess
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AnimationTutorial", "AnimationTutorial\AnimationTutorial.vcxproj", "{EC2D9428-291F-4939-BA89-2086C8FEE01D}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Shadow", "Shadow\Shadow.vcxproj", "{9F6C970C-62D9-4F3A-B620-86A9EE58E12B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -81,6 +83,10 @@ Global
 		{EC2D9428-291F-4939-BA89-2086C8FEE01D}.Debug|Win32.Build.0 = Debug|Win32
 		{EC2D9428-291F-4939-BA89-2086C8FEE01D}.Release|Win32.ActiveCfg = Release|Win32
 		{EC2D9428-291F-4939-BA89-2086C8FEE01D}.Release|Win32.Build.0 = Release|Win32
+		{9F6C970C-62D9-4F3A-B620-86A9EE58E12B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9F6C970C-62D9-4F3A-B620-86A9EE58E12B}.Debug|Win32.Build.0 = Debug|Win32
+		{9F6C970C-62D9-4F3A-B620-86A9EE58E12B}.Release|Win32.ActiveCfg = Release|Win32
+		{9F6C970C-62D9-4F3A-B620-86A9EE58E12B}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
