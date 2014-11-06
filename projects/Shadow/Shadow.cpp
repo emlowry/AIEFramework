@@ -55,8 +55,8 @@ bool Shadow::onCreate(int a_argc, char* a_argv[])
 	glDeleteShader(vs);
 	glDeleteShader(fs);
 
-	vs = Utility::loadShader("shaders/displayMap.vert", GL_VERTEX_SHADER);
-	fs = Utility::loadShader("shaders/displayMap.frag", GL_FRAGMENT_SHADER);
+	vs = Utility::loadShader("shaders/scene.vert", GL_VERTEX_SHADER);
+	fs = Utility::loadShader("shaders/scene.frag", GL_FRAGMENT_SHADER);
 	const char* inputs3[] = { "Position", "TexCoord", "Normals" };
 	const char* outputs3[] = { "FragColor" };
 	m_program = Utility::createProgram(vs, 0, 0, 0, fs, 3, inputs3, 1, outputs3);
@@ -68,7 +68,7 @@ bool Shadow::onCreate(int a_argc, char* a_argv[])
 	create2DQuad();
 
 	m_fbx = new FBXFile();
-	m_fbx->load("./Models/ruinedtank/tank.fbx", FBXFile::UNITS_METER);
+	m_fbx->load("./Models/ruinedtank/tank.fbx", FBXFile::UNITS_CENTIMETER);
 	m_fbx->initialiseOpenGLTextures();
 	InitFBXSceneResource(m_fbx);
 
@@ -121,7 +121,7 @@ void Shadow::onDraw()
 	Gizmos::draw2D(glm::ortho<float>(0.0f, (float)width, 0.0f, (float)height, -1.0f, 1.0f));
 
 	drawScene();
-	//displayShadowMap();
+	displayShadowMap();
 }
 
 void Shadow::onDestroy()
