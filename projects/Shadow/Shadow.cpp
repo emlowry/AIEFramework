@@ -179,11 +179,11 @@ void Shadow::createShadowBuffer()
 void Shadow::setUpLightAndShadowMatrix(float count)
 {
 	// setup light direction and shadow matrix
-	glm::vec3 lightPosition = glm::vec3(0.0f, 15.0f, -2.0f);
+	glm::vec3 lightPosition = glm::vec3(1.0f, 1.0f, 0.0f);
 	m_lightDirection = glm::normalize(glm::vec4(-lightPosition, 0));
 
 	glm::mat4 depthViewMatrix = glm::lookAt(lightPosition, glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-	glm::mat4 depthProjectionMatrix = glm::ortho<float>(-40, 40, -40, 40, 0, 20);
+	glm::mat4 depthProjectionMatrix = glm::ortho<float>(-10, 10, -10, 10, -50, 50);
 	m_shadowProjectionViewMatrix = depthProjectionMatrix * depthViewMatrix;
 }
 
