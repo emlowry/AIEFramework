@@ -50,5 +50,5 @@ protected:
 	unsigned int m_shadowWidth, m_shadowHeight, m_shadowFramebuffer, m_shadowTexture, m_2dprogram, m_shadowShader, m_program;
 
 	Buffers m_2dQuad;
-	FBXFile *m_fbx;
+	FBXFile* m_fbx;
 };

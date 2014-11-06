@@ -36,7 +36,7 @@ bool Shadow::onCreate(int a_argc, char* a_argv[])
 	// set the clear colour and enable depth testing and backface culling
 	glClearColor(0.25f,0.25f,0.25f,1);
 	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_CULL_FACE);
+	//glEnable(GL_CULL_FACE);
 
 	// load shaders and link shader programs
 	unsigned int vs = Utility::loadShader("shaders/shadow.vert", GL_VERTEX_SHADER);
@@ -57,7 +57,7 @@ bool Shadow::onCreate(int a_argc, char* a_argv[])
 
 	vs = Utility::loadShader("shaders/scene.vert", GL_VERTEX_SHADER);
 	fs = Utility::loadShader("shaders/scene.frag", GL_FRAGMENT_SHADER);
-	const char* inputs3[] = { "Position", "TexCoord", "Normals" };
+	const char* inputs3[] = { "Position", "Normals", "TexCoord" };
 	const char* outputs3[] = { "FragColor" };
 	m_program = Utility::createProgram(vs, 0, 0, 0, fs, 3, inputs3, 1, outputs3);
 	glDeleteShader(vs);
@@ -179,11 +179,11 @@ void Shadow::createShadowBuffer()
 void Shadow::setUpLightAndShadowMatrix(float count)
 {
 	// setup light direction and shadow matrix
-	glm::vec3 lightPosition = glm::vec3(10.0f, 10.0f, 5.0f);
+	glm::vec3 lightPosition = glm::vec3(0.0f, 15.0f, -2.0f);
 	m_lightDirection = glm::normalize(glm::vec4(-lightPosition, 0));
 
 	glm::mat4 depthViewMatrix = glm::lookAt(lightPosition, glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-	glm::mat4 depthProjectionMatrix = glm::ortho<float>(-40, 40, -40, 40, 0, 40);
+	glm::mat4 depthProjectionMatrix = glm::ortho<float>(-40, 40, -40, 40, 0, 20);
 	m_shadowProjectionViewMatrix = depthProjectionMatrix * depthViewMatrix;
 }
 
@@ -225,7 +225,7 @@ void Shadow::renderShadowMap()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
 	glUseProgram(m_shadowShader);
-	glCullFace(GL_FRONT);
+	//glCullFace(GL_FRONT);
 
 	unsigned int location = glGetUniformLocation(m_shadowShader, "lightProjectionViewWorld");
 	glUniformMatrix4fv(location, 1, false, glm::value_ptr(m_shadowProjectionViewMatrix));
@@ -234,12 +234,13 @@ void Shadow::renderShadowMap()
 	glBindTexture(GL_TEXTURE_2D, m_shadowTexture);
 
 	// render FBX scene
-	for (unsigned int i = 0; i < m_fbx->getMeshCount(); ++i)
-	{
-		FBXMeshNode* mesh = m_fbx->getMeshByIndex(i);
-		glBindVertexArray(((GLData*)mesh->m_userData)->vao);
-		glDrawElements(GL_TRIANGLES, (unsigned int)mesh->m_indices.size(), GL_UNSIGNED_INT, 0);
-	}
+
+		for (unsigned int i = 0; i < m_fbx->getMeshCount(); ++i)
+		{
+			FBXMeshNode* mesh = m_fbx->getMeshByIndex(i);
+			glBindVertexArray(((GLData*)mesh->m_userData)->vao);
+			glDrawElements(GL_TRIANGLES, (unsigned int)mesh->m_indices.size(), GL_UNSIGNED_INT, 0);
+		}
 
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 	glUseProgram(0);
@@ -270,16 +271,15 @@ void Shadow::drawScene()
 	// set to render to the back-buffer
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glCullFace(GL_BACK);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// get the view matrix from the world-space camera matrix
 	glm::mat4 viewMatrix = glm::inverse(m_cameraMatrix);
 
 	// bind the shadow map to texture slot 1
 	unsigned int texLoc = glGetUniformLocation(m_program, "shadowMap");
-	glUniform1i(texLoc, 1);
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, m_shadowTexture);
+	glUniform1i(texLoc, 1);
 
 	// reset back to the default active texture
 	glActiveTexture(GL_TEXTURE0);
@@ -303,6 +303,7 @@ void Shadow::drawScene()
 	unsigned int shadowMatrix = glGetUniformLocation(m_program, "lightProjectionViewWorld");
 
 	// render FBX scene
+
 	for (unsigned int i = 0; i < m_fbx->getMeshCount(); ++i)
 	{
 		FBXMeshNode* mesh = m_fbx->getMeshByIndex(i);
@@ -367,8 +368,8 @@ void Shadow::InitFBXSceneResource(FBXFile *a_pScene)
 		// eg: attrubute 1 is expected to be the verticy's color. it should be 4 floats, representing rgba
 		// eg: attrubute 2 is expected to be the verticy's texture coordinate. it should be 2 floats, representing U and V
 		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(FBXVertex), (char *)FBXVertex::PositionOffset);
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(FBXVertex), (char *)FBXVertex::TexCoord1Offset);
-		glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(FBXVertex), (char *)FBXVertex::NormalOffset);
+		glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(FBXVertex), (char *)FBXVertex::NormalOffset);
+		glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(FBXVertex), (char *)FBXVertex::TexCoord1Offset);
 
 		// finally, where done describing our mesh to the shader
 		// we can describe the next mesh

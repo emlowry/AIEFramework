@@ -1,8 +1,8 @@
 #version 150
 
 in vec4 Position;
-in vec2 TexCoord;
 in vec4 Normals;
+in vec3 TexCoord;
 out vec4 normals;
 out vec2 texCoord;
 out vec4 shadowCoord;
@@ -20,7 +20,7 @@ const mat4 SHADOW_BIAS_MATRIX = mat4(
 void main()
 {
 	normals = world * Normals;
-	texCoord = TexCoord;
+	texCoord = TexCoord.xy;
 	shadowCoord = SHADOW_BIAS_MATRIX * lightProjectionViewWorld * Position;
 	gl_Position = projectionView * world * Position;
 }
