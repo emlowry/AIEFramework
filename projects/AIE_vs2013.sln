@@ -29,6 +29,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AnimationTutorial", "Animat
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Shadow", "Shadow\Shadow.vcxproj", "{9F6C970C-62D9-4F3A-B620-86A9EE58E12B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SceneManagement", "SceneManagement\SceneManagement.vcxproj", "{4C2AD109-E604-4B8D-A750-B717B5FA5809}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -87,6 +89,10 @@ Global
 		{9F6C970C-62D9-4F3A-B620-86A9EE58E12B}.Debug|Win32.Build.0 = Debug|Win32
 		{9F6C970C-62D9-4F3A-B620-86A9EE58E12B}.Release|Win32.ActiveCfg = Release|Win32
 		{9F6C970C-62D9-4F3A-B620-86A9EE58E12B}.Release|Win32.Build.0 = Release|Win32
+		{4C2AD109-E604-4B8D-A750-B717B5FA5809}.Debug|Win32.ActiveCfg = Debug|Win32
+		{4C2AD109-E604-4B8D-A750-B717B5FA5809}.Debug|Win32.Build.0 = Debug|Win32
+		{4C2AD109-E604-4B8D-A750-B717B5FA5809}.Release|Win32.ActiveCfg = Release|Win32
+		{4C2AD109-E604-4B8D-A750-B717B5FA5809}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
