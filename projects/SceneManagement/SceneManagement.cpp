@@ -4,6 +4,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/ext.hpp>
+#include <stack>
 
 #define DEFAULT_SCREENWIDTH 1280
 #define DEFAULT_SCREENHEIGHT 720
@@ -90,32 +91,6 @@ void SceneManagement::onUpdate(float a_deltaTime)
 						 i == 10 ? glm::vec4(1,1,1,1) : glm::vec4(0,0,0,1) );
 	}
 
-	
-	/*
-	glm::vec4 plane = glm::vec4(1, 0, 0, -4.75);
-	glm::vec4 sphere = glm::vec4(-5, 0, 0, 0.5f);
-	Gizmos::addSphere(sphere.xyz(), sphere.w, 4, 4, glm::vec4(1, 1, 0, 1));
-
-	glm::vec4 planes[6];
-	getFrustrumPlanes(m_projectionMatrix, planes);
-
-	glm::mat4 viewMatrix = glm::inverse(m_cameraMatrix);
-	sphere.xyz = (viewMatrix * glm::vec4(sphere.xyz(), 1)).xyz();
-
-	for (int i = 0; i < 6; ++i)
-	{
-		if (planeSphereTest(planes[i], sphere) < 0)
-		{
-			printf("behind\n");
-			break;
-		}
-
-		if (i == 5)
-		{
-			printf("visible\n");
-		}
-	}
-	/**/
 	// quit our application when escape is pressed
 	if (glfwGetKey(m_window,GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		quit();
@@ -187,41 +162,59 @@ void SceneManagement::onDraw()
 	glUniform3fv(location, 1, glm::value_ptr(m_cameraMatrix[3]));
 
 	// bind our vertex array object and draw the mesh
-	for (unsigned int i = 0; i < m_fbx->getMeshCount(); ++i)
+	std::stack<FBXNode*> renderStack;
+	renderStack.emplace(m_fbx->getRoot());
+	FBXMeshNode* mesh = nullptr;
+	while (!renderStack.empty())
 	{
-		FBXMeshNode* mesh = m_fbx->getMeshByIndex(i);
-		OGL_FBXRenderData* glData = (OGL_FBXRenderData*)mesh->m_userData;
-
-		// test for visibility
-		glm::vec4 boundingSphere = glData->sphere;
-		boundingSphere.xyz = (viewMatrix * glm::vec4(boundingSphere.xyz(), 1)).xyz();
-		for (int i = 0; i < 6; ++i)
+		FBXNode* node = renderStack.top();
+		renderStack.pop();
+		bool renderChildren = true;
+		if (FBXNode::MESH == node->m_nodeType)
 		{
-			if (planeSphereTest(planes[i], boundingSphere) < 0)
-			{
-				printf("behind\n");
-				break;
-			}
+			FBXMeshNode* mesh = (FBXMeshNode*)node;
+			OGL_FBXRenderData* glData = (OGL_FBXRenderData*)mesh->m_userData;
 
-			if (i == 5)
+			// test for visibility
+			glm::vec4 boundingSphere = glData->sphere;
+			boundingSphere.xyz = (viewMatrix * glm::vec4(boundingSphere.xyz(), 1)).xyz();
+			for (int i = 0; i < 6; ++i)
 			{
-				printf("visible\n");
-
-				FBXMaterial* material = mesh->m_material;
-				location = glGetUniformLocation(m_shader, "hasMaterial");
-				glUniform1i(location, nullptr != material ? GL_TRUE : GL_FALSE);
-				if (nullptr != material)
+				if (planeSphereTest(planes[i], boundingSphere) < 0)
 				{
-					location = glGetUniformLocation(m_shader, "materialAmbient");
-					glUniform4fv(location, 1, &(material->ambient[0]));
-					location = glGetUniformLocation(m_shader, "materialDiffuse");
-					glUniform4fv(location, 1, &(material->diffuse[0]));
-					location = glGetUniformLocation(m_shader, "materialSpecular");
-					glUniform4fv(location, 1, &(material->specular[0]));
+					//printf("behind\n");
+					bool renderChildren = false;
+					break;
 				}
 
-				glBindVertexArray(glData->VAO);
-				glDrawElements(GL_TRIANGLES, (unsigned int)mesh->m_indices.size(), GL_UNSIGNED_INT, 0);
+				if (i == 5)
+				{
+					//printf("visible\n");
+
+					FBXMaterial* material = mesh->m_material;
+					location = glGetUniformLocation(m_shader, "hasMaterial");
+					glUniform1i(location, nullptr != material ? GL_TRUE : GL_FALSE);
+					if (nullptr != material)
+					{
+						location = glGetUniformLocation(m_shader, "materialAmbient");
+						glUniform4fv(location, 1, &(material->ambient[0]));
+						location = glGetUniformLocation(m_shader, "materialDiffuse");
+						glUniform4fv(location, 1, &(material->diffuse[0]));
+						location = glGetUniformLocation(m_shader, "materialSpecular");
+						glUniform4fv(location, 1, &(material->specular[0]));
+					}
+
+					glBindVertexArray(glData->VAO);
+					glDrawElements(GL_TRIANGLES, (unsigned int)mesh->m_indices.size(), GL_UNSIGNED_INT, 0);
+				}
+			}	// end visibility test
+		}
+
+		if (renderChildren)
+		{
+			for each (FBXNode* child in node->m_children)
+			{
+				renderStack.emplace(child);
 			}
 		}
 	}
@@ -260,20 +253,22 @@ void SceneManagement::createOpenGLBuffers(FBXFile* a_fbx)
 
 		// calculate bounding box
 		glm::vec3 min, max;
-		min = max = mesh->m_vertices[0].position.xyz;
+		min = max = mesh->m_vertices[0].position.xyz();
 		for each (FBXVertex vertex in mesh->m_vertices)
 		{
-			if (vertex.position.x > max.x) max.x = vertex.position.x;
-			else if (vertex.position.x < min.x) min.x = vertex.position.x;
-			if (vertex.position.y > max.y) max.y = vertex.position.y;
-			else if (vertex.position.y < min.y) min.y = vertex.position.y;
-			if (vertex.position.z > max.z) max.z = vertex.position.z;
-			else if (vertex.position.z < min.z) min.z = vertex.position.z;
+			glm::vec3 pos = vertex.position.xyz();
+			if (pos.x > max.x) max.x = pos.x;
+			else if (pos.x < min.x) min.x = pos.x;
+			if (pos.y > max.y) max.y = pos.y;
+			else if (pos.y < min.y) min.y = pos.y;
+			if (pos.z > max.z) max.z = pos.z;
+			else if (pos.z < min.z) min.z = pos.z;
 		}
 
 		// calculate bounding sphere
 		glData->sphere.xyz = (min + max) / 2.0f;
-		glData->sphere.w = (max - min).length() / 2;
+		glm::vec3 diag = (max - min);
+		glData->sphere.w = sqrt((diag.x*diag.x) + (diag.y*diag.y) + (diag.z*diag.z)) / 2.0f;
 
 		glEnableVertexAttribArray(0); // position
 		glEnableVertexAttribArray(1); // normal
