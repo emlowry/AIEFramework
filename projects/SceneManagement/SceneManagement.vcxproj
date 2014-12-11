@@ -82,6 +82,10 @@
   <ItemGroup>
     <ClInclude Include="SceneManagement.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\lit.frag" />
+    <None Include="shaders\lit.vert" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

@@ -24,4 +24,8 @@
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\lit.frag" />
+    <None Include="shaders\lit.vert" />
+  </ItemGroup>
 </Project>
