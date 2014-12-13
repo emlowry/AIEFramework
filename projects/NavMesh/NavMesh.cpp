@@ -4,6 +4,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/ext.hpp>
+#include <unordered_map>
 
 #define DEFAULT_SCREENWIDTH 1280
 #define DEFAULT_SCREENHEIGHT 720
@@ -42,6 +43,8 @@ bool NavMesh::onCreate(int a_argc, char* a_argv[])
 	m_navMesh->load("models/SponzaSimpleNavMesh.fbx", FBXFile::UNITS_CENTIMETER);
 //	createOpenGLBuffers(m_navMesh);
 
+	buildNavMesh(m_navMesh->getMeshByIndex(0), m_graph);
+
 	unsigned int vs = Utility::loadShader("shaders/sponza.vert", GL_VERTEX_SHADER);
 	unsigned int fs = Utility::loadShader("shaders/sponza.frag", GL_FRAGMENT_SHADER);
 	m_shader = Utility::createProgram(vs,0,0,0,fs);
@@ -70,6 +73,49 @@ void NavMesh::onUpdate(float a_deltaTime)
 		
 		Gizmos::addLine( glm::vec3(10, 0, -10 + i), glm::vec3(-10, 0, -10 + i), 
 						 i == 10 ? glm::vec4(1,1,1,1) : glm::vec4(0,0,0,1) );
+	}
+
+	// draw navmesh
+	for (auto node : m_graph)
+	{
+		// draw node center
+		Gizmos::addAABBFilled(node->position + glm::vec3(0, 0.05f, 0),
+							  glm::vec3(0.05f), glm::vec4(1, 0, 0, 1));
+
+		// draw node area
+		Gizmos::addTri(node->vertices[0] + glm::vec3(0, 0.05f, 0),
+					   node->vertices[1] + glm::vec3(0, 0.05f, 0),
+					   node->vertices[2] + glm::vec3(0, 0.05f, 0),
+					   glm::vec4(0, 1, 0, 0.25f));
+		Gizmos::addLine(node->vertices[0] + glm::vec3(0, 0.05f, 0),
+						node->vertices[1] + glm::vec3(0, 0.05f, 0),
+						glm::vec4(0, 1, 0, 1));
+		Gizmos::addLine(node->vertices[1] + glm::vec3(0, 0.05f, 0),
+						node->vertices[2] + glm::vec3(0, 0.05f, 0),
+						glm::vec4(0, 1, 0, 1));
+		Gizmos::addLine(node->vertices[2] + glm::vec3(0, 0.05f, 0),
+						node->vertices[0] + glm::vec3(0, 0.05f, 0),
+						glm::vec4(0, 1, 0, 1));
+
+		// draw connections to adjacent nodes
+		if (nullptr != node->edgeTarget[0])
+		{
+			Gizmos::addLine(node->position + glm::vec3(0, 0.1f, 0),
+							node->edgeTarget[0]->position + glm::vec3(0, 0.1f, 0),
+							glm::vec4(1, 1, 0, 1));
+		}
+		if (nullptr != node->edgeTarget[1])
+		{
+			Gizmos::addLine(node->position + glm::vec3(0, 0.1f, 0),
+				node->edgeTarget[1]->position + glm::vec3(0, 0.1f, 0),
+				glm::vec4(1, 1, 0, 1));
+		}
+		if (nullptr != node->edgeTarget[2])
+		{
+			Gizmos::addLine(node->position + glm::vec3(0, 0.1f, 0),
+				node->edgeTarget[2]->position + glm::vec3(0, 0.1f, 0),
+				glm::vec4(1, 1, 0, 1));
+		}
 	}
 
 	// quit our application when escape is pressed
@@ -108,7 +154,7 @@ void NavMesh::onDraw()
 	}
 	
 	// draw the gizmos from this frame
-	Gizmos::draw(viewMatrix, m_projectionMatrix);
+	Gizmos::draw(m_projectionMatrix, viewMatrix);
 }
 
 void NavMesh::onDestroy()
@@ -196,6 +242,7 @@ void NavMesh::buildNavMesh(FBXMeshNode* a_mesh, std::vector<NavNodeTri*>& a_grap
 {
 	unsigned int triCount = a_mesh->m_indices.size() / 3;
 
+	// create nodes
 	for (unsigned int tri = 0; tri < triCount; ++tri)
 	{
 		NavNodeTri*node = new NavNodeTri();
@@ -216,6 +263,7 @@ void NavMesh::buildNavMesh(FBXMeshNode* a_mesh, std::vector<NavNodeTri*>& a_grap
 		a_graph.push_back(node);
 	}
 
+	// connect nodes
 	for (auto start : a_graph)
 	{
 		for (auto end : a_graph)
@@ -227,7 +275,155 @@ void NavMesh::buildNavMesh(FBXMeshNode* a_mesh, std::vector<NavNodeTri*>& a_grap
 			
 			// AB == XY || AB == YZ || AB == ZX
 			// AB == YX || AB == ZY || AB == XZ
+			if ((start->vertices[0] == end->vertices[0] && start->vertices[1] == end->vertices[1]) ||
+				(start->vertices[0] == end->vertices[1] && start->vertices[1] == end->vertices[2]) ||
+				(start->vertices[0] == end->vertices[2] && start->vertices[1] == end->vertices[0]) ||
+				(start->vertices[0] == end->vertices[1] && start->vertices[1] == end->vertices[0]) ||
+				(start->vertices[0] == end->vertices[2] && start->vertices[1] == end->vertices[1]) ||
+				(start->vertices[0] == end->vertices[0] && start->vertices[1] == end->vertices[2]))
+			{
+				start->edgeTarget[0] = end;
+			}
 
+			// BC == XY || BC == YZ || BC == ZX
+			// BC == YX || BC == ZY || BC == XZ
+			if ((start->vertices[1] == end->vertices[0] && start->vertices[2] == end->vertices[1]) ||
+				(start->vertices[1] == end->vertices[1] && start->vertices[2] == end->vertices[2]) ||
+				(start->vertices[1] == end->vertices[2] && start->vertices[2] == end->vertices[0]) ||
+				(start->vertices[1] == end->vertices[1] && start->vertices[2] == end->vertices[0]) ||
+				(start->vertices[1] == end->vertices[2] && start->vertices[2] == end->vertices[1]) ||
+				(start->vertices[1] == end->vertices[0] && start->vertices[2] == end->vertices[2]))
+			{
+				start->edgeTarget[1] = end;
+			}
+
+			// CA == XY || CA == YZ || CA == ZX
+			// CA == YX || CA == ZY || CA == XZ
+			if ((start->vertices[2] == end->vertices[0] && start->vertices[0] == end->vertices[1]) ||
+				(start->vertices[2] == end->vertices[1] && start->vertices[0] == end->vertices[2]) ||
+				(start->vertices[2] == end->vertices[2] && start->vertices[0] == end->vertices[0]) ||
+				(start->vertices[2] == end->vertices[1] && start->vertices[0] == end->vertices[0]) ||
+				(start->vertices[2] == end->vertices[2] && start->vertices[0] == end->vertices[1]) ||
+				(start->vertices[2] == end->vertices[0] && start->vertices[0] == end->vertices[2]))
+			{
+				start->edgeTarget[2] = end;
+			}
 		}
 	}
+}
+
+bool NavMesh::findPath(NavNodeTri* a_start, NavNodeTri* a_end,
+	const std::vector<NavNodeTri*>& a_graph,
+	std::vector<NavNodeTri*>& a_path)
+{
+	// no path needed or possible
+	if (nullptr == a_start || nullptr == a_end)
+		return false;
+	if (a_start == a_end)
+		return true;
+
+	// create path nodes and parameters for A* iterations
+	std::unordered_map<NavNodeTri*, PathNode> nodes;
+	std::set<PathNode*> open, closed;
+	PathNode* end = nullptr;
+	for (auto node : a_graph)
+	{
+		nodes[node] = PathNode(node);
+		if (node == a_start)
+		{
+			open.insert(&nodes[node]);
+		}
+		if (node == a_end)
+		{
+			end = &nodes[node];
+		}
+	}
+
+	// iterate
+	while (computingPathStep(end, open, closed, nodes));
+
+	// no path found
+	if (nullptr == end->previous)
+	{
+		return false;
+	}
+
+	// return result
+	for (PathNode* current = end; nullptr != current; current = current->previous)
+	{
+		a_path.insert(a_path.begin(), current);
+	}
+	return true;
+}
+
+bool NavMesh::computingPathStep(PathNode* a_end,
+								std::set<PathNode*>& a_open,
+								std::set<PathNode*>& a_closed,
+								std::unordered_map<NavNodeTri*, PathNode>& a_nodes)
+{
+	// no more to do if no open nodes
+	if (a_open.empty())
+	{
+		return false;
+	}
+
+	// select optimum open path node
+	PathNode* current = *a_open.begin();
+	for (auto node : a_open)
+	{
+		// if end node is one of the open nodes, we're done
+		if (a_end == node)
+		{
+			return false;
+		}
+
+		// otherwise, the optimum open node is the one closest to the end
+		if (current != node)
+		{
+			glm::vec3 currentDisplacement = a_end->node->position - current->node->position;
+			glm::vec3 newDisplacement = a_end->node->position - node->node->position;
+			if (glm::dot(newDisplacement, newDisplacement) <
+				glm::dot(currentDisplacement, currentDisplacement))
+			{
+				current = node;
+			}
+		}
+	}
+	a_open.erase(current);
+	a_closed.insert(current);
+
+	// check neighbors
+	for (auto edgeTarget : current->node->edgeTarget)
+	{
+		if (nullptr == edgeTarget)
+		{
+			continue;
+		}
+		PathNode* neighbor = &a_nodes[edgeTarget];
+		
+		// if neighbor has already been checked, no need to check again
+		if (a_closed.end() == a_closed.find(neighbor))
+		{
+			continue;
+		}
+
+		// if neighbor can be reached more quickly via current node, set previous
+		float cost = glm::distance(neighbor->node->position, current->node->position);
+		if (nullptr == neighbor->previous ||
+			neighbor->pathCostFrom(current) < neighbor->pathCost())
+		{
+			neighbor->previous = current;
+		}
+
+		// if neighbor is end node, we're done
+		if (a_end == neighbor)
+		{
+			return false;
+		}
+
+		// neighbor can be checked in later iterations
+		a_open.insert(neighbor);
+	}
+
+	return true;
 }

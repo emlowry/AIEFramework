@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 
 #include <FBXFile.h>
+#include <set>
 
 // Derived application class that wraps up all globals neatly
 class NavMesh : public Application
@@ -28,10 +29,57 @@ protected:
 		NavNodeTri*	edgeTarget[3];
 	};
 
+	struct PathNode
+	{
+		PathNode(NavNodeTri* a_node = nullptr,
+				 PathNode* a_previous = nullptr)
+			: node(a_node), previous(a_previous) {}
+
+		float pathCost() const
+		{
+			float totalCost = 0.0f;
+			for (const PathNode* current = this;
+				 nullptr != current->previous;
+				 current = current->previous)
+			{
+				totalCost += costFrom(previous);
+			}
+		}
+
+		float costFrom(PathNode* a_node) const
+		{
+			if (nullptr == a_node || nullptr == a_node->node || nullptr == node)
+			{
+				return 0;
+			}
+			return glm::distance(node->position, a_node->node->position);
+		}
+
+		float pathCostFrom(PathNode* a_node) const
+		{
+			if (nullptr == a_node)
+			{
+				return 0;
+			}
+			return costFrom(a_node) + a_node->pathCost();
+		}
+		
+		NavNodeTri* node = nullptr;
+		PathNode* previous = nullptr;
+	};
+
 	std::vector<NavNodeTri*>	m_graph;
 
 	void	buildNavMesh(FBXMeshNode* a_mesh,
 						 std::vector<NavNodeTri*>& a_graph);
+	bool	findPath(NavNodeTri* a_start,
+					 NavNodeTri* a_end,
+					 const std::vector<NavNodeTri*>& a_graph,
+					 std::vector<NavNodeTri*>& a_path);
+	bool	computingPathStep(PathNode* a_endNode,
+							  std::set<PathNode*>& a_open,
+							  std::set<PathNode*>& a_closed,
+							  std::unordered_map<NavNodeTri*, PathNode>& a_nodes);
 
 	void	createOpenGLBuffers(FBXFile* a_fbx);
 	void	cleanupOpenGLBuffers(FBXFile* a_fbx);

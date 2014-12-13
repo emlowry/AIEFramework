@@ -21,17 +21,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="NavMesh.h">
-      <Filter>Source Files</Filter>
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\sponza.frag">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="shaders\sponza.vert">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="models\SponzaSimpleNavMesh.fbx" />
+    <None Include="shaders\sponza.frag" />
+    <None Include="shaders\sponza.vert" />
     <None Include="models\SponzaSimple.fbx" />
+    <None Include="models\SponzaSimpleNavMesh.fbx" />
   </ItemGroup>
 </Project>
