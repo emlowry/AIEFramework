@@ -353,18 +353,14 @@ bool NavMesh::findPath(NavNodeTri* a_start, NavNodeTri* a_end,
 	PathNode* end = nullptr;
 	for (auto node : a_graph)
 	{
+		nodes[node] = PathNode(node);
 		if (node == a_start)
 		{
-			nodes[node] = PathNode(node);// ->closestPointTo(a_end->position), node);
 			open.insert(&nodes[node]);
 		}
-		else
+		if (node == a_end)
 		{
-			nodes[node] = PathNode(node);
-			if (node == a_end)
-			{
-				end = &nodes[node];
-			}
+			end = &nodes[node];
 		}
 	}
 
@@ -442,14 +438,7 @@ bool NavMesh::computingPathStep(PathNode* a_end,
 		{
 			continue;
 		}
-		/*
-		// only do the more expensive nearest-point-to-target calculation when
-		// the algorithm reaches a node for the first time
-		if (a_open.end() == a_open.find(neighbor))
-		{
-			neighbor->position = neighbor->node->closestPointTo(a_end->position);
-		}
-		/**/
+
 		// if neighbor can be reached more quickly via current node, set previous
 		if (nullptr == neighbor->previous ||
 			neighbor->pathCostFrom(current) < neighbor->pathCost())
@@ -477,9 +466,11 @@ void NavMesh::smoothPath(std::vector<PathNode>& a_path)
 	while (i < a_path.size() - 1)
 	{
 		unsigned int j = a_path.size() - 1;
-		for (j; j != i; --j)
+		for (j; j > i + 1; --j)
 		{
-
+			// if line-of-sight between a_path[i] and a_path[j],
+			// remove a_path[i + 1] through a_path[j - 1], then
+			// continue
 		}
 	}
 }
@@ -526,144 +517,42 @@ float NavMesh::PathNode::pathCostFrom(PathNode* a_node) const
 	return costFrom(a_node) + a_node->pathCost();
 }
 
-// code taken from http://www.gamedev.net/topic/552906-closest-point-on-triangle/
-glm::vec3 NavMesh::NavNodeTri::closestPointTo(const glm::vec3& a_target) const
+bool NavMesh::PathNode::lineOfSight(const glm::vec3& a_target) const
 {
-	glm::vec3 result;
-	closestPointTo(a_target, result);
-	return result;
-}
-void NavMesh::NavNodeTri::closestPointTo(const glm::vec3& a_target, glm::vec3& a_closestPoint) const
-{
-	glm::vec3 edge0 = vertices[1] - vertices[0];
-	glm::vec3 edge1 = vertices[2] - vertices[0];
-	glm::vec3 v0 = vertices[0] - a_target;
 
-	float a = glm::dot(edge0, edge0);
-	float b = glm::dot(edge0, edge1);
-	float c = glm::dot(edge1, edge1);
-	float d = glm::dot(edge0, v0);
-	float e = glm::dot(edge1, v0);
-
-	float det = a*c - b*b;
-	float s = b*e - c*d;
-	float t = b*d - a*e;
-
-	if (s + t < det)
-	{
-		if (s < 0.f)
-		{
-			if (t < 0.f)
-			{
-				if (d < 0.f)
-				{
-					s = glm::clamp(-d / a, 0.f, 1.f);
-					t = 0.f;
-				}
-				else
-				{
-					s = 0.f;
-					t = glm::clamp(-e / c, 0.f, 1.f);
-				}
-			}
-			else
-			{
-				s = 0.f;
-				t = glm::clamp(-e / c, 0.f, 1.f);
-			}
-		}
-		else if (t < 0.f)
-		{
-			s = glm::clamp(-d / a, 0.f, 1.f);
-			t = 0.f;
-		}
-		else
-		{
-			float invDet = 1.f / det;
-			s *= invDet;
-			t *= invDet;
-		}
-	}
-	else
-	{
-		if (s < 0.f)
-		{
-			float tmp0 = b + d;
-			float tmp1 = c + e;
-			if (tmp1 > tmp0)
-			{
-				float numer = tmp1 - tmp0;
-				float denom = a - 2 * b + c;
-				s = glm::clamp(numer / denom, 0.f, 1.f);
-				t = 1 - s;
-			}
-			else
-			{
-				t = glm::clamp(-e / c, 0.f, 1.f);
-				s = 0.f;
-			}
-		}
-		else if (t < 0.f)
-		{
-			if (a + d > b + e)
-			{
-				float numer = c + e - b - d;
-				float denom = a - 2 * b + c;
-				s = glm::clamp(numer / denom, 0.f, 1.f);
-				t = 1 - s;
-			}
-			else
-			{
-				s = glm::clamp(-e / c, 0.f, 1.f);
-				t = 0.f;
-			}
-		}
-		else
-		{
-			float numer = c + e - b - d;
-			float denom = a - 2 * b + c;
-			s = glm::clamp(numer / denom, 0.f, 1.f);
-			t = 1.f - s;
-		}
-	}
-
-	a_closestPoint = vertices[0] + s*edge0 + t*edge1;
-}
-bool NavMesh::NavNodeTri::intersections(const glm::vec3& a_start,
-										const glm::vec3& a_end,
-										glm::vec3* a_entrance,
-										glm::vec3* a_exit)
-{
-	NavNodeTri* previous;
-	NavNodeTri* next;
-	return intersections(a_start, a_end, previous, next, a_entrance, a_exit);
-}
-bool NavMesh::NavNodeTri::intersections(const glm::vec3& a_start,
-										const glm::vec3& a_end,
-										NavNodeTri*& a_previous,
-										NavNodeTri*& a_next,
-										glm::vec3* a_entrance,
-										glm::vec3* a_exit)
-{
-	glm::vec3 entrance = a_start;
-	glm::vec3 exit = a_end;
-	bool result = false;
-
-
-
-	// return results
-	if (nullptr != a_entrance)
-	{
-		*a_entrance = entrance;
-	}
-	if (nullptr != a_exit)
-	{
-		*a_exit = exit;
-	}
-	return result;
 }
 
-bool lineOfSight(NavMesh::PathNode* a_start, NavMesh::PathNode* a_end)
+NavMesh::NavNodeTri::NavNodeTri(const glm::vec3& a_v0,
+								const glm::vec3& a_v1,
+								const glm::vec3& a_v2)
 {
+	vertices[0] = a_v0;
+	vertices[1] = a_v1;
+	vertices[2] = a_v2;
+	setup();
+}
+NavMesh::NavNodeTri::NavNodeTri(const glm::vec3 a_vertices[3])
+{
+	vertices[0] = a_vertices[0];
+	vertices[1] = a_vertices[1];
+	vertices[2] = a_vertices[2];
+	setup();
+}
+void NavMesh::NavNodeTri::setup()
+{
+	edgeTarget[0] = edgeTarget[1] = edgeTarget[2] = nullptr;
+	position = (vertices[0] + vertices[1] + vertices[2]) / 3.0f;
+	normal = glm::cross(vertices[1] - vertices[0],
+						vertices[2] - vertices[0]);
+	if (glm::vec3(0) != normal)
+	{
+		normal /= glm::distance(glm::vec3(0), normal);
+	}
+}
+glm::vec3 NavMesh::NavNodeTri::farthestPointAlongPath(const glm::vec3& a_start,
+													  const glm::vec3& a_end) const
+{
+	glm::vec3 start = a_start - normal * glm::dot(normal, a_start - vertices[0]);
+	glm::vec3 end = a_end - normal * glm::dot(normal, a_end - vertices[0]);
 
 }

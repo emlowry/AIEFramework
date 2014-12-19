@@ -25,19 +25,18 @@ protected:
 
 	struct NavNodeTri
 	{
+		NavNodeTri(const glm::vec3& a_v0,
+				   const glm::vec3& a_v1,
+				   const glm::vec3& a_v2);
+		NavNodeTri(const glm::vec3 a_vertices[3]);
+		void setup();
+		glm::vec3 farthestPointAlongPath(const glm::vec3& a_start,
+										 const glm::vec3& a_end) const;
+		
 		glm::vec3	position;
 		glm::vec3	vertices[3];
+		glm::vec3	normal;
 		NavNodeTri*	edgeTarget[3];
-
-		glm::vec3 closestPointTo(const glm::vec3& a_target) const;
-		void closestPointTo(const glm::vec3& a_target, glm::vec3& a_point) const;
-		bool intersections(const glm::vec3& a_start, const glm::vec3& a_end,
-						   glm::vec3* a_entrance = nullptr,
-						   glm::vec3* a_exit = nullptr);
-		bool intersections(const glm::vec3& a_start, const glm::vec3& a_end,
-						   NavNodeTri*& a_previous, NavNodeTri*& a_next,
-						   glm::vec3* a_entrance = nullptr,
-						   glm::vec3* a_exit = nullptr);
 	};
 
 	struct PathNode
@@ -51,6 +50,7 @@ protected:
 		float pathCost() const;
 		float costFrom(PathNode* a_node) const;
 		float pathCostFrom(PathNode* a_node) const;
+		bool lineOfSight(const glm::vec3& a_target) const;
 		
 		NavNodeTri* node = nullptr;
 		PathNode* previous = nullptr;
