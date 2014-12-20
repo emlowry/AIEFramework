@@ -542,17 +542,115 @@ void NavMesh::NavNodeTri::setup()
 {
 	edgeTarget[0] = edgeTarget[1] = edgeTarget[2] = nullptr;
 	position = (vertices[0] + vertices[1] + vertices[2]) / 3.0f;
+	glm::vec3 v0 = vertices[1] - vertices[0];
+	glm::vec3 v1 = vertices[2] - vertices[0];
 	normal = glm::cross(vertices[1] - vertices[0],
 						vertices[2] - vertices[0]);
 	if (glm::vec3(0) != normal)
 	{
 		normal /= glm::distance(glm::vec3(0), normal);
 	}
+
+	parametricToWorld = glm::mat4(glm::vec4(v0, vertices[0].x),
+								  glm::vec4(v1, vertices[0].y),
+								  glm::vec4(normal, vertices[0].z),
+								  glm::vec4(0, 0, 0, 1));
+	worldToParametric = glm::inverse(parametricToWorld);
+}
+glm::vec3 NavMesh::NavNodeTri::toParametric(const glm::vec3& a_world) const
+{
+	return (worldToParametric * glm::vec4(a_world, 1)).xyz();
+}
+glm::vec3 NavMesh::NavNodeTri::toParametric(float a_worldX,
+											float a_worldY,
+											float a_worldZ) const
+{
+	return toParametric(glm::vec3(a_worldX, a_worldY, a_worldZ));
+}
+glm::vec3 NavMesh::NavNodeTri::toWorld(const glm::vec3& a_parametric) const
+{
+	return (parametricToWorld * glm::vec4(a_parametric, 1)).xyz();
+}
+glm::vec3 NavMesh::NavNodeTri::toWorld(float a_parametricX,
+									   float a_parametricY,
+									   float a_parametricZ) const
+{
+	return toWorld(glm::vec3(a_parametricX, a_parametricY, a_parametricZ));
 }
 glm::vec3 NavMesh::NavNodeTri::farthestPointAlongPath(const glm::vec3& a_start,
 													  const glm::vec3& a_end) const
 {
-	glm::vec3 start = a_start - normal * glm::dot(normal, a_start - vertices[0]);
-	glm::vec3 end = a_end - normal * glm::dot(normal, a_end - vertices[0]);
+	glm::vec3 start = toParametric(a_start);
+	glm::vec3 end = toParametric(a_end);
 
+	// end point inside triangle
+	if (0 <= end.x && 0 <= end.y && 1 >= end.x + end.y)
+	{
+		return toWorld(end.x, end.y, 0);
+	}
+
+	// path starts inside triangle and ends outside it
+	glm::vec3 v = start - end;
+	if (start.x >= 0 && start.y >= 0 && start.x + start.y <= 1)
+	{
+		// vertical path
+		if (0 == v.x)
+		{
+			return toWorld(start.x, (0 == v.y ? start.y :
+									 0 < v.y ? 1 - start.x : 0), 0);
+
+		}
+
+		// horizontal path
+		if (0 == v.y)
+		{
+			return toWorld((0 == v.x ? start.x :
+							0 < v.x ? 1 - start.y : 0), start.y, 0);
+		}
+	}
+
+	// intersection with horizontal axis
+	float hIntersection = -1;
+	float hDistance = -1;
+	if (0 != v.y)
+	{
+		hDistance = -(v.x / v.y) * end.y;
+		hIntersection = end.x + hDistance;
+	}
+
+	// intersection with vertical axis
+	float vIntersection = -1;
+	float vDistance = -1;
+	if (0 != v.x)
+	{
+		vDistance = -(v.y / v.x) * end.x;
+		vIntersection = end.y + vDistance;
+	}
+
+	// intersection with diagonal
+	glm::vec2 dIntersection(-1);
+	glm::vec2 dDistances(-1);
+	if (v.x != -v.y)
+	{
+		// x + y = 1, y = y0 + (x - x0) * vy/vx, x = x0 + (y - y0) * vx/vy
+		// y = y0 + (1 - y - x0) * vy/vx, x = x0 + (1 - x - y0) * vx/vy
+		// y = (y0 + (1 - x0) * vy/vx) / (1 + vy/vx)
+		// x = (x0 + (1 - y0) * vx/vy) / (1 + vx/vy)
+		if (0 == v.x)
+		{
+			dDistances = glm::vec2(0, 1 - end.x - end.y);
+			dIntersection = end.xy() + dDistances;
+		}
+		else if (0 == v.y)
+		{
+			dDistances = glm::vec2(1 - end.y - end.x, 0);
+			dIntersection = end.xy() + dDistances;
+		}
+		else
+		{
+			dIntersection.x = (end.x + (1 - end.y) * v.x / v.y) / (1 + v.x / v.y);
+			dIntersection.y = 1 - dIntersection.x;
+			dDistances = dIntersection - end.xy;
+		}
+	}
 }

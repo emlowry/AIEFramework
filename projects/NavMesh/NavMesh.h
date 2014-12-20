@@ -30,6 +30,14 @@ protected:
 				   const glm::vec3& a_v2);
 		NavNodeTri(const glm::vec3 a_vertices[3]);
 		void setup();
+		glm::vec3 toParametric(const glm::vec3& a_world) const;
+		glm::vec3 toParametric(float a_worldX,
+							   float a_worldY,
+							   float a_worldZ = 0) const;
+		glm::vec3 toWorld(const glm::vec3& a_parametric) const;
+		glm::vec3 toWorld(float a_parametricX,
+						  float a_parametricY,
+						  float a_parametricZ = 0) const;
 		glm::vec3 farthestPointAlongPath(const glm::vec3& a_start,
 										 const glm::vec3& a_end) const;
 		
@@ -37,6 +45,9 @@ protected:
 		glm::vec3	vertices[3];
 		glm::vec3	normal;
 		NavNodeTri*	edgeTarget[3];
+
+		glm::mat4	parametricToWorld;
+		glm::mat4	worldToParametric;
 	};
 
 	struct PathNode
