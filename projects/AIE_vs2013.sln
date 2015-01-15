@@ -33,6 +33,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SceneManagement", "SceneMan
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NavMesh", "NavMesh\NavMesh.vcxproj", "{6E03CEE6-C6C0-45BD-A6DF-8A8BAEAE1B3B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BehaviorTree", "BehaviorTree\BehaviorTree.vcxproj", "{1459748B-FEDB-476D-A3A2-03A3D521E04A}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AIAssessment", "AIAssessment\AIAssessment.vcxproj", "{1113C61E-382F-49DE-A2F1-17D38FE14BF3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -99,6 +103,14 @@ Global
 		{6E03CEE6-C6C0-45BD-A6DF-8A8BAEAE1B3B}.Debug|Win32.Build.0 = Debug|Win32
 		{6E03CEE6-C6C0-45BD-A6DF-8A8BAEAE1B3B}.Release|Win32.ActiveCfg = Release|Win32
 		{6E03CEE6-C6C0-45BD-A6DF-8A8BAEAE1B3B}.Release|Win32.Build.0 = Release|Win32
+		{1459748B-FEDB-476D-A3A2-03A3D521E04A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1459748B-FEDB-476D-A3A2-03A3D521E04A}.Debug|Win32.Build.0 = Debug|Win32
+		{1459748B-FEDB-476D-A3A2-03A3D521E04A}.Release|Win32.ActiveCfg = Release|Win32
+		{1459748B-FEDB-476D-A3A2-03A3D521E04A}.Release|Win32.Build.0 = Release|Win32
+		{1113C61E-382F-49DE-A2F1-17D38FE14BF3}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1113C61E-382F-49DE-A2F1-17D38FE14BF3}.Debug|Win32.Build.0 = Debug|Win32
+		{1113C61E-382F-49DE-A2F1-17D38FE14BF3}.Release|Win32.ActiveCfg = Release|Win32
+		{1113C61E-382F-49DE-A2F1-17D38FE14BF3}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
