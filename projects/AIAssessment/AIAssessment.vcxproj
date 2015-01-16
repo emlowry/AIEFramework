@@ -85,6 +85,7 @@
     <ClInclude Include="Agent.h" />
     <ClInclude Include="AIAssessment.h" />
     <ClInclude Include="Behavior.h" />
+    <ClInclude Include="Fuzzy.h" />
     <ClInclude Include="NavMesh.h" />
     <ClInclude Include="Rectangle.h" />
   </ItemGroup>

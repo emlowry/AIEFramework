@@ -31,6 +31,7 @@ protected:
 	std::vector<Rectangle>	m_obstacles;
 	std::vector<glm::vec2>	m_patrol;
 	unsigned int m_patrolIndex;
+	bool m_patrolPersuit;
 	std::vector<glm::vec2>  m_path;
 	unsigned int m_pathIndex;
 

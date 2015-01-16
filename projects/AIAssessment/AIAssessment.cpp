@@ -1,6 +1,7 @@
 #include "AIAssessment.h"
 #include "Gizmos.h"
 #include "Utilities.h"
+#include "Fuzzy.h"
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/ext.hpp>
@@ -44,6 +45,59 @@ public:
 	bool m_loop;
 };
 
+class ChooseNearestTargetOnPath : public Behavior
+{
+public:
+
+	ChooseNearestTargetOnPath(Path* a_path, unsigned int* a_pathIndex, float a_altitude = 0)
+	: m_path(a_path), m_pathIndex(a_pathIndex), m_altitude(a_altitude) {}
+	virtual ~ChooseNearestTargetOnPath() {}
+
+	virtual bool execute(Agent* a_agent)
+	{
+		if (nullptr != m_path && nullptr != m_pathIndex && 0 < m_path->size())
+		{
+			float dist1 = glm::distance2(a_agent->getPosition().xy(), (*m_path)[0]);
+			unsigned int index = 0;
+			for (unsigned int i = 1; i < m_path->size(); ++i)
+			{
+				float dist2 = glm::distance2(a_agent->getPosition().xy(), (*m_path)[i]);
+				if (dist2 < dist1)
+				{
+					dist1 = dist2;
+					index = i;
+				}
+			}
+			*m_pathIndex = index;
+			a_agent->setTarget(glm::vec3((*m_path)[index], m_altitude));
+			return true;
+		}
+		return false;
+	}
+
+	Path* m_path;
+	unsigned int* m_pathIndex;
+	float m_altitude;
+};
+
+class TargetAgentPosition : public Behavior
+{
+public:
+
+	TargetAgentPosition(Agent* a_agent) : m_agent(a_agent) {}
+	virtual ~TargetAgentPosition() {}
+
+	virtual bool execute(Agent* a_agent)
+	{
+		if (nullptr == a_agent || nullptr == m_agent)
+			return false;
+		a_agent->setTarget(glm::vec3(m_agent->getPosition().xy(), a_agent->getPosition().z));
+		return true;
+	}
+
+	Agent* m_agent;
+};
+
 class MoveToTarget : public Behavior
 {
 public:
@@ -70,10 +124,77 @@ public:
 	float m_speed;
 };
 
+class CanSeeAgent : public Behavior
+{
+public:
+
+	CanSeeAgent(Agent* a_agent, NavMesh* a_mesh)
+		: m_agent(a_agent), m_mesh(a_mesh) {}
+	virtual ~CanSeeAgent() {}
+
+	virtual bool execute(Agent* a_agent)
+	{
+		return m_mesh->lineOfSight(a_agent->getPosition().xy, m_agent->getPosition().xy);
+	}
+
+	Agent* m_agent;
+	NavMesh* m_mesh;
+};
+
 float randFloat(float max = 1.0f, float min = 0.0f)
 {
 	return ((float)rand() / (float)RAND_MAX) * (max - min) + min;
 }
+
+class Wander : public Behavior
+{
+public:
+	Wander(NavMesh* a_mesh, float a_speed,
+				  float a_maxTurn, float a_turnChange)
+		: m_mesh(a_mesh), m_speed(a_speed), m_maxTurn(a_maxTurn),
+		  m_turnChange(a_turnChange), m_currentAngle(0), m_currentTurn(0) {}
+	virtual ~Wander() {}
+
+	virtual bool execute(Agent* a_agent)
+	{
+		float deltaTime = Utility::getDeltaTime();
+		glm::vec3 pos = a_agent->getPosition();
+
+		// adjust turn
+		m_currentTurn += (randFloat(1, -1) * m_turnChange * deltaTime);
+		if (m_currentTurn > m_maxTurn)
+			m_currentTurn = m_maxTurn;
+		else if (m_currentTurn < -m_maxTurn)
+			m_currentTurn = -m_maxTurn;
+
+		// adjust angle
+		m_currentAngle += m_currentTurn * deltaTime;
+		glm::vec2 dir = glm::vec2(cosf(m_currentAngle), sinf(m_currentAngle));
+
+		// avoid navmesh edges
+		NavMeshTile* tile = m_mesh->getTile(pos.xy());
+		if (nullptr == tile) return false;
+		if (nullptr == tile->neighbors[Rectangle::RIGHT])
+			dir.x += (tile->rect.bottomLeft.x - pos.x) / tile->rect.size().x;
+		if (nullptr == tile->neighbors[Rectangle::BOTTOM])
+			dir.y += (tile->rect.topRight.y - pos.y) / tile->rect.size().y;
+		if (nullptr == tile->neighbors[Rectangle::LEFT])
+			dir.x += (tile->rect.topRight.x - pos.x) / tile->rect.size().x;
+		if (nullptr == tile->neighbors[Rectangle::TOP])
+			dir.y += (tile->rect.bottomLeft.y - pos.y) / tile->rect.size().y;
+
+		// save final angle
+		if (0.0f != dir.x || 0.0f != dir.y)
+			m_currentAngle = atan2f(dir.y, dir.x);
+
+		// update position
+		a_agent->setPosition(pos + glm::vec3((glm::normalize(dir) * m_speed * deltaTime), 0));
+		return true;
+	}
+
+	NavMesh* m_mesh;
+	float m_speed, m_maxTurn, m_turnChange, m_currentAngle, m_currentTurn;
+};
 
 class ChooseRandomPath : public Behavior
 {
@@ -191,26 +312,81 @@ bool AIAssessment::onCreate(int a_argc, char* a_argv[])
 	// create NavMesh
 	GenerateNavMesh();
 
+	// lambda function for getting the squared distance between the agents
+	auto range = [&] { return glm::distance2(m_pathAgent.getPosition(), m_patrolAgent.getPosition()); };
+
 	// create patrolling agent
+
+	// use fuzzy logic to decide if this agent should chase the other agent
+	FuzzyLogic* chase = new FuzzyLogic();
+
+	// if the other agent is close enough, chase it
+	Sequence* persuit = new Sequence();
+	persuit->addChild(new SetValue<bool>(&m_patrolPersuit, true));
+	persuit->addChild(new TargetAgentPosition(&m_pathAgent));
+	persuit->addChild(new MoveToTarget(2.0f));
+	chase->addRule(persuit,
+				   new FuzzyLogic::LeftShoulder(range, 4.0, 16.0),
+				   FuzzyLogic::LeftShoulder(1.0, 2.0), 0.5);
+
 	Sequence* patrol = new Sequence();
+
+	// if the other agent is far enough away, don't chase it any more
+	Selector* stopPersuit = new Selector();
+	stopPersuit->addChild(new CheckValue<bool>(&m_patrolPersuit, false));
+	Sequence* resumePatrol = new Sequence();
+	resumePatrol->addChild(new SetValue<bool>(&m_patrolPersuit, false));
+	resumePatrol->addChild(new ChooseNearestTargetOnPath(&m_patrol, &m_patrolIndex, 1.25f));
+	stopPersuit->addChild(resumePatrol);
+	patrol->addChild(stopPersuit);
+
+	// move along the patrol route
 	patrol->addChild(new MoveToTarget(2.0f));
 	patrol->addChild(new ChooseNextTargetOnPath(&m_patrol, &m_patrolIndex, 1.25f, true));
-	m_patrolAgent.setBehavior(patrol);
+
+	chase->addRule(patrol,
+				   new FuzzyLogic::RightShoulder(range, 16.0, 4.0),
+				   FuzzyLogic::RightShoulder(2.0, 1.0), 2.5);
+
+	m_patrolAgent.setBehavior(chase);
 	m_patrolAgent.setPosition(glm::vec3(m_patrol[0], 1.25f));
 	m_patrolAgent.setTarget(glm::vec3(m_patrol[0], 1.25f));
 	m_patrolIndex = 0;
+	m_patrolPersuit = false;
 
 	// create random-path-following agent
 	Sequence* path = new Sequence();
+
+	// use fuzzy logic to decide if a path is needed
+	FuzzyLogic* flee = new FuzzyLogic();
 	Selector* randomPath = new Selector();
 	randomPath->addChild(new PathExists(&m_path));
-	randomPath->addChild(new ChooseRandomPath(&m_path, &m_pathIndex, &m_mesh));
-	path->addChild(randomPath);
+	Sequence* makePath = new Sequence();
+	makePath->addChild(new CanSeeAgent(&m_patrolAgent, &m_mesh));
+	makePath->addChild(new ChooseRandomPath(&m_path, &m_pathIndex, &m_mesh));
+	randomPath->addChild(makePath);
+	flee->addRule(randomPath,
+				  new FuzzyLogic::LeftShoulder(range, 1.0, 4.0),
+				  FuzzyLogic::LeftShoulder(1.0, 2.0), 0.5);
+	flee->addRule(nullptr,
+				  new FuzzyLogic::RightShoulder(range, 4.0, 1.0),
+				  FuzzyLogic::RightShoulder(2.0, 1.0), 2.5);
+	path->addChild(flee);
+
+	// if no path exists, wander randomly
+	Selector* wander = new Selector();
+	wander->addChild(new PathExists(&m_path));
+	wander->addChild(new Wander(&m_mesh, 1.0, 1.5, 50));
+	path->addChild(wander);
+
+	// otherwise, follow the path
+	path->addChild(new PathExists(&m_path));
 	path->addChild(new MoveToTarget(3.0f));
 	Selector* finishPath = new Selector();
 	finishPath->addChild(new ChooseNextTargetOnPath(&m_path, &m_pathIndex, 0.5f));
 	finishPath->addChild(new DestroyPath(&m_path));
 	path->addChild(finishPath);
+
 	m_pathIndex = 0;
 	m_pathAgent.setBehavior(path);
 
@@ -248,31 +424,30 @@ void AIAssessment::onUpdate(float a_deltaTime)
 
 	// add agents
 	m_patrolAgent.update(a_deltaTime);
-	Gizmos::addCylinderFilled(m_patrolAgent.getPosition(), 0.5, 0.25, 8, glm::vec4(0, 0, 1, 1), &ROTATE_UP_TRANSFORM);
+	Gizmos::addCylinderFilled(m_patrolAgent.getPosition(), 0.5, 0.25, 8,
+							  glm::vec4(0, (m_patrolPersuit ? 1 : 0), 1, 1), &ROTATE_UP_TRANSFORM);
+	Gizmos::addLine(glm::vec3(m_patrolAgent.getTarget().xy(), 1.125),
+					glm::vec3(m_patrolAgent.getPosition().xy(), 1.125),
+					glm::vec4(0, 1, 1, 1));
 	m_pathAgent.update(a_deltaTime);
-	Gizmos::addCylinderFilled(m_pathAgent.getPosition(), 0.25, 0.5, 8, glm::vec4(1, 0, 0, 1), &ROTATE_UP_TRANSFORM);
+	Gizmos::addCylinderFilled(m_pathAgent.getPosition(), 0.25, 0.5, 8,
+							  glm::vec4(1, 0, (0 == m_path.size() ? 1 : 0), 1),
+							  &ROTATE_UP_TRANSFORM);
+	if (0 < m_path.size())
+	{
+		Gizmos::addLine(glm::vec3(m_pathAgent.getPosition().xy(), 0.125),
+						glm::vec3(m_pathAgent.getTarget().xy(), 0.125),
+						glm::vec4(1, 0, 1, 1));
+	}
 
 	// add patrol route
 	for (unsigned int i = 0; i < m_patrol.size(); ++i)
 	{
 		Gizmos::addSphere(glm::vec3(m_patrol[i], 1.125), 0.125, 4, 8,
 						  glm::vec4(0, (i == m_patrolIndex ? 1 : 0), 1, 1));
-		if (i == m_patrolIndex)
-		{
-			glm::vec3 patrolPosition = glm::vec3(m_patrolAgent.getPosition().xy(), 1.125);
-			Gizmos::addLine(glm::vec3(m_patrol[i], 1.125),
-							patrolPosition,
-							glm::vec4(0, 1, 1, 1));
-			Gizmos::addLine(patrolPosition,
-							glm::vec3(m_patrol[(i > 0 ? i : m_patrol.size()) - 1], 1.125),
-							glm::vec4(0,0,1,1));
-		}
-		else
-		{
-			Gizmos::addLine(glm::vec3(m_patrol[i], 1.125),
-							glm::vec3(m_patrol[(i > 0 ? i : m_patrol.size()) - 1], 1.125),
-							glm::vec4(0, 0, 1, 1));
-		}
+		Gizmos::addLine(glm::vec3(m_patrol[i], 1.125),
+						glm::vec3(m_patrol[(i > 0 ? i : m_patrol.size()) - 1], 1.125),
+						glm::vec4(0, 0, 1, 1));
 	}
 
 	// add path
@@ -282,22 +457,9 @@ void AIAssessment::onUpdate(float a_deltaTime)
 	}
 	for (unsigned int i = 1; i < m_path.size(); ++i)
 	{
-		if (i == m_pathIndex)
-		{
-			glm::vec3 pathPosition = glm::vec3(m_pathAgent.getPosition().xy(), 0.125);
-			Gizmos::addLine(glm::vec3(m_path[i - 1], 0.125),
-							pathPosition,
-							glm::vec4(1, 0, 0, 1));
-			Gizmos::addLine(pathPosition,
-							glm::vec3(m_path[i], 0.125),
-							glm::vec4(1, 0, 1, 1));
-		}
-		else
-		{
-			Gizmos::addLine(glm::vec3(m_path[i - 1], 0.125),
-							glm::vec3(m_path[i], 0.125),
-							glm::vec4(1, 0, (i > m_pathIndex ? 1 : 0), 1));
-		}
+		Gizmos::addLine(glm::vec3(m_path[i - 1], 0.125),
+						glm::vec3(m_path[i], 0.125),
+						glm::vec4(1, 0, (i > m_pathIndex ? 1 : 0), 1));
 	}
 
 	// add NavMesh
@@ -338,7 +500,7 @@ void AIAssessment::onDestroy()
 		Behavior* behavior = behaviors.top();
 		behaviors.pop();
 		Composite* composite = dynamic_cast<Composite*>(behavior);
-		if (nullptr == composite)
+		if (nullptr != composite)
 		{
 			while (0 < composite->childCount())
 			{
@@ -346,6 +508,11 @@ void AIAssessment::onDestroy()
 				composite->popChild();
 				if (nullptr != child)
 					behaviors.push(child);
+			}
+			FuzzyLogic* fuzzy = dynamic_cast<FuzzyLogic*>(behavior);
+			if (nullptr != fuzzy)
+			{
+				fuzzy->destroyRules();
 			}
 		}
 		delete behavior;

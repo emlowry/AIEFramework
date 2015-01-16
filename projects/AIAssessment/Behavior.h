@@ -31,6 +31,45 @@ protected:
 	std::vector<Behavior*>	m_children;
 };
 
+template<typename T>
+class CheckValue : public Behavior
+{
+public:
+
+	CheckValue(T* a_value, const T& a_desiredValue)
+		: m_value(a_value), m_desiredValue(a_desiredValue) {}
+	virtual ~CheckValue() {}
+
+	virtual bool execute(Agent* a_agent)
+	{
+		return (nullptr == m_value ? false : m_desiredValue == *m_value);
+	}
+
+	T* m_value;
+	T m_desiredValue;
+};
+
+template<typename T>
+class SetValue : public Behavior
+{
+public:
+
+	SetValue(T* a_value, const T& a_desiredValue)
+		: m_value(a_value), m_desiredValue(a_desiredValue) {}
+	virtual ~SetValue() {}
+
+	virtual bool execute(Agent* a_agent)
+	{
+		if (nullptr == m_value)
+			return false;
+		*m_value = m_desiredValue;
+		return true;
+	}
+
+	T* m_value;
+	T m_desiredValue;
+};
+
 class Selector : public Composite
 {
 public:
@@ -40,9 +79,9 @@ public:
 
 	virtual bool	execute(Agent* a_agent)
 	{
-		for (unsigned int i = 0; i < m_children.size(); ++i)
+		for (auto child : m_children)
 		{
-			if (m_children[i]->execute(a_agent) == true)
+			if (child->execute(a_agent) == true)
 				return true;
 		}
 		return false;
@@ -58,9 +97,9 @@ public:
 
 	virtual bool	execute(Agent* a_agent)
 	{
-		for (unsigned int i = 0; i < m_children.size(); ++i)
+		for (auto child : m_children)
 		{
-			if (m_children[i]->execute(a_agent) == false)
+			if (child->execute(a_agent) == false)
 				return false;
 		}
 		return true;
