@@ -149,10 +149,11 @@ float randFloat(float max = 1.0f, float min = 0.0f)
 class Wander : public Behavior
 {
 public:
-	Wander(NavMesh* a_mesh, float a_speed,
-				  float a_maxTurn, float a_turnChange)
-		: m_mesh(a_mesh), m_speed(a_speed), m_maxTurn(a_maxTurn),
-		  m_turnChange(a_turnChange), m_currentAngle(0), m_currentTurn(0) {}
+	Wander(NavMesh* a_mesh, float a_collisionDistance, float a_speed,
+		   float a_maxTurn, float a_turnChange)
+		: m_mesh(a_mesh), m_collisionDistance(a_collisionDistance),
+		  m_speed(a_speed), m_maxTurn(a_maxTurn), m_turnChange(a_turnChange),
+		  m_currentAngle(0), m_currentTurn(0) {}
 	virtual ~Wander() {}
 
 	virtual bool execute(Agent* a_agent)
@@ -174,14 +175,22 @@ public:
 		// avoid navmesh edges
 		NavMeshTile* tile = m_mesh->getTile(pos.xy());
 		if (nullptr == tile) return false;
-		if (nullptr == tile->neighbors[Rectangle::RIGHT])
-			dir.x += (tile->rect.bottomLeft.x - pos.x) / tile->rect.size().x;
-		if (nullptr == tile->neighbors[Rectangle::BOTTOM])
-			dir.y += (tile->rect.topRight.y - pos.y) / tile->rect.size().y;
-		if (nullptr == tile->neighbors[Rectangle::LEFT])
-			dir.x += (tile->rect.topRight.x - pos.x) / tile->rect.size().x;
-		if (nullptr == tile->neighbors[Rectangle::TOP])
-			dir.y += (tile->rect.bottomLeft.y - pos.y) / tile->rect.size().y;
+		float distanceFromRight = tile->rect.topRight.x - pos.x;
+		float distanceFromBottom = pos.y - tile->rect.bottomLeft.y;
+		float distanceFromLeft = pos.x - tile->rect.bottomLeft.x;
+		float distanceFromTop = tile->rect.topRight.y - pos.y;
+		if (nullptr == tile->neighbors[Rectangle::RIGHT] &&
+			distanceFromRight < m_collisionDistance)
+			dir.x -= (m_collisionDistance - distanceFromRight) / m_collisionDistance;
+		if (nullptr == tile->neighbors[Rectangle::BOTTOM] &&
+			distanceFromBottom < m_collisionDistance)
+			dir.y += (m_collisionDistance - distanceFromBottom) / m_collisionDistance;
+		if (nullptr == tile->neighbors[Rectangle::LEFT] &&
+			distanceFromLeft < m_collisionDistance)
+			dir.x += (m_collisionDistance - distanceFromLeft) / m_collisionDistance;
+		if (nullptr == tile->neighbors[Rectangle::TOP] &&
+			distanceFromTop < m_collisionDistance)
+			dir.y -= (m_collisionDistance - distanceFromTop) / m_collisionDistance;
 
 		// save final angle
 		if (0.0f != dir.x || 0.0f != dir.y)
@@ -193,7 +202,7 @@ public:
 	}
 
 	NavMesh* m_mesh;
-	float m_speed, m_maxTurn, m_turnChange, m_currentAngle, m_currentTurn;
+	float m_collisionDistance, m_speed, m_maxTurn, m_turnChange, m_currentAngle, m_currentTurn;
 };
 
 class ChooseRandomPath : public Behavior
@@ -376,7 +385,7 @@ bool AIAssessment::onCreate(int a_argc, char* a_argv[])
 	// if no path exists, wander randomly
 	Selector* wander = new Selector();
 	wander->addChild(new PathExists(&m_path));
-	wander->addChild(new Wander(&m_mesh, 1.0, 1.5, 50));
+	wander->addChild(new Wander(&m_mesh, 0.25, 1.0, 1.5, 50));
 	path->addChild(wander);
 
 	// otherwise, follow the path
@@ -444,7 +453,7 @@ void AIAssessment::onUpdate(float a_deltaTime)
 	for (unsigned int i = 0; i < m_patrol.size(); ++i)
 	{
 		Gizmos::addSphere(glm::vec3(m_patrol[i], 1.125), 0.125, 4, 8,
-						  glm::vec4(0, (i == m_patrolIndex ? 1 : 0), 1, 1));
+						  glm::vec4(0, (!m_patrolPersuit && i == m_patrolIndex ? 1 : 0), 1, 1));
 		Gizmos::addLine(glm::vec3(m_patrol[i], 1.125),
 						glm::vec3(m_patrol[(i > 0 ? i : m_patrol.size()) - 1], 1.125),
 						glm::vec4(0, 0, 1, 1));

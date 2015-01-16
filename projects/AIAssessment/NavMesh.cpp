@@ -73,16 +73,16 @@ void NavMesh::addGizmos() const
 					   glm::vec4(0, 1, 0, 0.25f));
 		Gizmos::addLine(glm::vec3(tile->rect.topRight, 0.1f),
 						glm::vec3(tile->rect.bottomRight(), 0.1f),
-						glm::vec4(0, (nullptr == tile->neighbors[Rectangle::RIGHT] ? 1.0f : 0.5f), 0, 1));
+						glm::vec4((nullptr == tile->neighbors[Rectangle::RIGHT] ? 1 : 0), 1, 0, 1));
 		Gizmos::addLine(glm::vec3(tile->rect.bottomRight(), 0.1f),
 						glm::vec3(tile->rect.bottomLeft, 0.1f),
-						glm::vec4(0, (nullptr == tile->neighbors[Rectangle::BOTTOM] ? 1.0f : 0.5f), 0, 1));
+						glm::vec4((nullptr == tile->neighbors[Rectangle::BOTTOM] ? 1 : 0), 1, 0, 1));
 		Gizmos::addLine(glm::vec3(tile->rect.bottomLeft, 0.1f),
 						glm::vec3(tile->rect.topLeft(), 0.1f),
-						glm::vec4(0, (nullptr == tile->neighbors[Rectangle::LEFT] ? 1.0f : 0.5f), 0, 1));
+						glm::vec4((nullptr == tile->neighbors[Rectangle::LEFT] ? 1 : 0), 1, 0, 1));
 		Gizmos::addLine(glm::vec3(tile->rect.topLeft(), 0.1f),
 						glm::vec3(tile->rect.topRight, 0.1f),
-						glm::vec4(0, (nullptr == tile->neighbors[Rectangle::TOP] ? 1.0f : 0.5f), 0, 1));
+						glm::vec4((nullptr == tile->neighbors[Rectangle::TOP] ? 1 : 0), 1, 0, 1));
 	}
 }
 
