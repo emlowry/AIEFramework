@@ -6,19 +6,12 @@
 #include <glm/ext.hpp>
 #include <conio.h>
 
-#include "MessageIdentifiers.h"
 #include "Bitstream.h"
+#include "UpdateFormat.h"
+#include <set>
 
 #define DEFAULT_SCREENWIDTH 1280
 #define DEFAULT_SCREENHEIGHT 720
-
-#define SERVER_PORT 12001
-
-enum MESSAGE_HEADER
-{
-	HEADER_HELLO_WORLD = ID_USER_PACKET_ENUM + 1,
-	HEADER_HELLO_WORLD_RESPONSE
-};
 
 Networking_Client::Networking_Client()
 {
@@ -54,12 +47,16 @@ bool Networking_Client::onCreate(int a_argc, char* a_argv[])
 
 	RakNet::SocketDescriptor sd;
 	m_pInterface->Startup(1, &sd, 1, 0);
+	return Connect();
+}
 
+bool Networking_Client::Connect(float a_timeout)
+{
 	m_pInterface->Connect("127.0.0.1", SERVER_PORT, 0, 0);
 
 	RakNet::Packet* pPacket = nullptr;
 
-	while (Utility::getTotalTime() < 2.0f)
+	while (Utility::getTotalTime() < a_timeout)
 	{
 		pPacket = m_pInterface->Receive();
 
@@ -77,6 +74,65 @@ bool Networking_Client::onCreate(int a_argc, char* a_argv[])
 
 	printf("Connection to server unsuccessful - timeout.\n");
 	return false;
+}
+
+bool Networking_Client::Login(float a_timeout)
+{
+	m_loggedIn = false;
+	if (RakNet::IS_CONNECTED != m_pInterface->GetConnectionState(m_ServerAddress))
+	{
+		if (!Connect())
+			return false;
+	}
+
+	RakNet::BitStream outputStream;
+	outputStream.Write((unsigned char)HEADER_CLIENT_LOGIN);
+	m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, m_ServerAddress, false);
+
+	RakNet::Packet* pPacket = nullptr;
+	while (Utility::getTotalTime() < a_timeout)
+	{
+		pPacket = m_pInterface->Receive();
+		if (pPacket != nullptr)
+		{
+			if (pPacket->data[0] == HEADER_SERVER_LOGIN_FAILED ||
+				pPacket->data[0] == HEADER_SERVER_LOGIN_ACCEPTED)
+			{
+				RakNet::BitStream inputStream(pPacket->data, pPacket->length, true);
+				inputStream.IgnoreBytes(1);
+				if (pPacket->data[0] == HEADER_SERVER_LOGIN_FAILED)
+				{
+					RakNet::RakString inputString;
+					inputStream.Read(inputString);
+					printf("Login unsuccessful - ");
+					printf(inputString.C_String());
+					return false;
+				}
+				if (pPacket->data[0] == HEADER_SERVER_LOGIN_ACCEPTED)
+				{
+					RakNet::uint24_t id;
+					inputStream.Read(id);
+					m_id = id.val;
+					m_loggedIn = true;
+					printf("Logged in as user #%u!\n", m_id);
+					return true;
+				}
+			}
+		}
+		Utility::tickTimer();
+	}
+
+	printf("Login unsuccessful - timeout.\n");
+	return false;
+}
+
+void Networking_Client::DestroyData()
+{
+	for (auto data : m_players)
+	{
+		delete data;
+	}
+	m_players.clear();
 }
 
 void Networking_Client::onUpdate(float a_deltaTime) 
@@ -100,24 +156,163 @@ void Networking_Client::onUpdate(float a_deltaTime)
 						 i == 10 ? glm::vec4(1,1,1,1) : glm::vec4(0,0,0,1) );
 	}
 
-	RakNet::BitStream outputStream;
-	outputStream.Write((unsigned char)HEADER_HELLO_WORLD);
-	outputStream.Write("Hello World");
-
-	m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, m_ServerAddress, false);
-
-	RakNet::Packet* pPacket = nullptr;
-	for (pPacket = m_pInterface->Receive(); pPacket != nullptr; m_pInterface->DeallocatePacket(pPacket), pPacket = m_pInterface->Receive())
+	if (!m_loggedIn || RakNet::IS_CONNECTED != m_pInterface->GetConnectionState(m_ServerAddress))
 	{
-		if (pPacket->data[0] == HEADER_HELLO_WORLD_RESPONSE)
+		DestroyData();
+		Login();
+	}
+
+	bool sendUpdate = false;
+	if (m_loggedIn)
+	{
+		// if ProcessMessages returns true, then the server is requesting an update
+		sendUpdate = ProcessMessages();
+	}
+
+	if (m_loggedIn)
+	{
+		if (nullptr == m_players[m_id])
+			m_players[m_id] = new ServerUpdate(m_id, glm::vec2(0), glm::vec2(0), glm::vec3(0));
+
+		// if it's been long enough since the last update was sent, send an update
+		RakNet::Time time = RakNet::GetTime();
+		if (UPDATE_INTERVAL <= (float)(time - m_players[m_id]->clientTimestamp) / 1000)
 		{
-			printf("Received message from other client!\n");
+			sendUpdate = true;
+			m_players[m_id]->clientTimestamp = time;
+		}
+
+		// update and draw player positions
+		for (auto player : m_players)
+		{
+			float delta = (float)(time - player->timeStamp) / 1000;
+			player->position += player->velocity * delta;
+			player->position = glm::clamp(player->position, glm::vec2(-10), glm::vec2(10));
+			player->timeStamp = time;
+			Gizmos::addSphere(glm::vec3(player->position.x, 0, player->position.y), 0.5f, 8, 16,
+							  glm::vec4(player->color, (float)(time - player->clientTimestamp) / (TIMEOUT_INTERVAL * 1000)));
+		}
+
+		// highlight player character
+		Gizmos::addRing(glm::vec3(m_players[m_id]->position.x, 1, m_players[m_id]->position.y),
+						0.45f, 0.5f, 16, glm::vec4(1.0f, 0.875f, 0.5f, 1.0f));
+
+		// if player velocity changes, send an update
+		glm::vec2 velocity((glfwGetKey(m_window, GLFW_KEY_RIGHT) == GLFW_PRESS ? 1 : 0) -
+						   (glfwGetKey(m_window, GLFW_KEY_LEFT) == GLFW_PRESS ? 1 : 0),
+						   (glfwGetKey(m_window, GLFW_KEY_UP) == GLFW_PRESS ? 1 : 0) -
+						   (glfwGetKey(m_window, GLFW_KEY_DOWN) == GLFW_PRESS ? 1 : 0));
+		if (velocity != m_players[m_id]->velocity)
+		{
+			sendUpdate = true;
+			m_players[m_id]->velocity = velocity;
+		}
+
+		// if neccessary, send an update
+		if (sendUpdate)
+		{
+			RakNet::BitStream outputStream;
+			ClientUpdate update(*m_players[m_id]);
+			update.Encode(outputStream);
+			m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, m_ServerAddress, false);
 		}
 	}
 
 	// quit our application when escape is pressed
 	if (glfwGetKey(m_window,GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		quit();
+}
+
+bool Networking_Client::ProcessMessages()
+{
+	bool sendUpdate = false;
+	RakNet::Packet* pPacket = nullptr;
+	for (pPacket = m_pInterface->Receive(); pPacket != nullptr; m_pInterface->DeallocatePacket(pPacket), pPacket = m_pInterface->Receive())
+	{
+		RakNet::BitStream inputStream(pPacket->data, pPacket->length, true);
+		unsigned char messageType = pPacket->data[0];
+		if (messageType = ID_TIMESTAMP)
+			messageType = pPacket->data[sizeof(unsigned char)+sizeof(RakNet::Time)];
+		switch (messageType)
+		{
+		case HEADER_UPDATE_REQUEST:
+		{
+			sendUpdate = true;
+			break;
+		}
+		case HEADER_CLIENT_LOGOFF:
+		{
+			inputStream.IgnoreBytes(1);
+			RakNet::uint24_t id;
+			inputStream.Read(id);
+			if (m_players.size() > id)
+			{
+				if (nullptr != m_players[id])
+				{
+					delete m_players[id];
+					m_players[id] = nullptr;
+				}
+				while (nullptr == m_players.back())
+					m_players.pop_back();
+			}
+			if (id != m_id)
+				break;
+		}
+		case HEADER_SERVER_DOWN:
+		{
+			m_loggedIn = false;
+			printf("Logged off by server!\n");
+			break;
+		}
+		case HEADER_SERVER_UPDATE:
+		{
+			ServerUpdate* update = new ServerUpdate(inputStream);
+			while (m_players.size() <= update->id)
+				m_players.push_back(nullptr);
+			if (nullptr == m_players[update->id])
+				m_players[update->id] = update;
+			else
+			{
+				if (m_players[update->id]->clientTimestamp < update->timeStamp &&
+					m_players[update->id]->clientTimestamp <= update->clientTimestamp)
+					*m_players[update->id] = *update;
+				delete update;
+			}
+			break;
+		}
+		case HEADER_SERVER_USER_LIST:
+		{
+			UserList list(inputStream);
+			if (list.timeStamp > m_lastUserListTimestamp)
+			{
+				m_lastUserListTimestamp = list.timeStamp;
+				std::set<RakNet::uint24_t> ids;
+				for (auto player : list.players)
+				{
+					ids.insert(player.id);
+					while (m_players.size() <= player.id)
+						m_players.push_back(nullptr);
+					if (nullptr == m_players[player.id])
+						m_players[player.id] = new ServerUpdate(player);
+					else if (m_players[player.id]->clientTimestamp < player.timeStamp &&
+							 m_players[player.id]->clientTimestamp <= player.clientTimestamp)
+						*m_players[player.id] = player;
+				}
+				for (unsigned int i = 0; i < m_players.size(); ++i)
+				{
+					if (0 == ids.count(i) && nullptr != m_players[i])
+					{
+						delete m_players[i];
+						m_players[i] = nullptr;
+					}
+				}
+				while (nullptr == m_players.back())
+					m_players.pop_back();
+			}
+		}
+		}// end of switch statement
+	}// end of for loop
+	return sendUpdate;
 }
 
 void Networking_Client::onDraw() 
@@ -141,6 +336,13 @@ void Networking_Client::onDestroy()
 {
 	// clean up anything we created
 	Gizmos::destroy();
+
+	RakNet::BitStream outputStream;
+	outputStream.Write((unsigned char)HEADER_CLIENT_LOGOFF);
+	outputStream.Write(m_id);
+	m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, m_ServerAddress, false);
+	printf("Logging off server.\n");
+	DestroyData();
 }
 
 // main that controls the creation/destruction of an application

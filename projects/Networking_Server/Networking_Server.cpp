@@ -5,19 +5,11 @@
 #include <GLFW/glfw3.h>
 #include <glm/ext.hpp>
 
-#include "MessageIdentifiers.h"
 #include "Bitstream.h"
+#include "UpdateFormat.h"
 
 #define DEFAULT_SCREENWIDTH 1280
 #define DEFAULT_SCREENHEIGHT 720
-
-#define SERVER_PORT 12001
-
-enum MESSAGE_HEADER
-{
-	HEADER_HELLO_WORLD = ID_USER_PACKET_ENUM + 1,
-	HEADER_HELLO_WORLD_RESPONSE
-};
 
 Networking_Server::Networking_Server()
 {
@@ -79,29 +71,127 @@ void Networking_Server::onUpdate(float a_deltaTime)
 						 i == 10 ? glm::vec4(1,1,1,1) : glm::vec4(0,0,0,1) );
 	}
 
-	RakNet::Packet* pPacket = nullptr;
-	for (pPacket = m_pInterface->Receive(); pPacket != nullptr; m_pInterface->DeallocatePacket(pPacket), pPacket = m_pInterface->Receive())
+	ProcessMessages();
+
+	// update and draw player positions
+	RakNet::Time time = RakNet::GetTime();
+	for (auto player : m_players)
 	{
-		if (pPacket->data[0] == HEADER_HELLO_WORLD)
-		{
-			RakNet::BitStream inputStream(pPacket->data, pPacket->length, true);
-			inputStream.IgnoreBytes(1);
-			RakNet::RakString inputString;
-			inputStream.Read(inputString);
+		float delta = (float)(time - player->timeStamp) / 1000;
+		player->position += player->velocity * delta;
+		player->position = glm::clamp(player->position, glm::vec2(-10), glm::vec2(10));
+		player->timeStamp = time;
+		Gizmos::addSphere(glm::vec3(player->position.x, 0, player->position.y), 0.5f, 8, 16,
+			glm::vec4(player->color, (float)(time - player->clientTimestamp) / (TIMEOUT_INTERVAL * 1000)));
+	}
 
-			printf(inputString.C_String());
-
-			RakNet::BitStream outputStream;
-
-			outputStream.Write((unsigned char)HEADER_HELLO_WORLD_RESPONSE);
-
-			m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, pPacket->systemAddress, true);
-		}
+	// if it's been long enough since the last update, send out the user list
+	if ((float)(time - m_lastUserListTimestamp) / 1000 >= UPDATE_INTERVAL)
+	{
+		UserList list(m_players);
+		RakNet::BitStream outputStream;
+		list.Encode(outputStream);
+		m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, RakNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 	}
 
 	// quit our application when escape is pressed
 	if (glfwGetKey(m_window,GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		quit();
+}
+
+void Networking_Server::ProcessMessages()
+{
+	RakNet::Packet* pPacket = nullptr;
+	for (pPacket = m_pInterface->Receive(); pPacket != nullptr; m_pInterface->DeallocatePacket(pPacket), pPacket = m_pInterface->Receive())
+	{
+		RakNet::BitStream inputStream(pPacket->data, pPacket->length, true);
+		unsigned char messageType = pPacket->data[0];
+		if (ID_TIMESTAMP == messageType)
+			messageType = pPacket->data[sizeof(unsigned char)+sizeof(RakNet::Time)];
+		switch (messageType)
+		{
+		case HEADER_CLIENT_LOGIN:
+		{
+			// create a new player
+			RakNet::BitStream outputStream;
+			outputStream.Write((unsigned char)HEADER_SERVER_LOGIN_ACCEPTED);
+			auto id = newId();
+			outputStream.Write(id);
+			m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, pPacket->systemAddress, false);
+
+			// tell all the other players about the new player
+			outputStream.Reset();
+			m_players[id]->Encode(outputStream);
+			m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, pPacket->systemAddress, true);
+		}
+		case HEADER_UPDATE_REQUEST:
+		{
+			// return information about all the active players
+			RakNet::BitStream outputStream;
+			UserList list(m_players);
+			list.Encode(outputStream);
+			m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, pPacket->systemAddress, false);
+			break;
+		}
+		case HEADER_CLIENT_LOGOFF:
+		{
+			// get the id of the player that's logging off
+			inputStream.IgnoreBytes(1);
+			RakNet::uint24_t id;
+			inputStream.Read(id);
+
+			// remove player from list
+			if (m_players.size() > id)
+			{
+				if (nullptr != m_players[id])
+				{
+					delete m_players[id];
+					m_players[id] = nullptr;
+				}
+				while (nullptr == m_players.back())
+					m_players.pop_back();
+			}
+
+			// pass message on to other players
+			m_pInterface->Send(&inputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, pPacket->systemAddress, true);
+			break;
+		}
+		case HEADER_CLIENT_UPDATE:
+		{
+			ClientUpdate update(inputStream);
+			RakNet::BitStream outputStream;
+
+			// if the player is valid, apply and pass on the update
+			if (m_players.size() > update.id && nullptr != m_players[update.id] &&
+				m_players[update.id]->clientTimestamp < update.timeStamp)
+			{
+				m_players[update.id]->Encode(outputStream);
+				m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, pPacket->systemAddress, true);
+			}
+			// otherwise, tell the client that the player isn't valid
+			else
+			{
+				outputStream.Write((unsigned char)HEADER_CLIENT_LOGOFF);
+				outputStream.Write(update.id);
+				m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, pPacket->systemAddress, false);
+			}
+		}
+		} // end of switch statement
+	} // end of for loop
+}
+
+RakNet::uint24_t Networking_Server::newId()
+{
+	for (unsigned int i = 0; i < m_players.size(); ++i)
+	{
+		if (nullptr == m_players[i])
+		{
+			m_players[i] = new ServerUpdate(i, glm::vec2(0), glm::vec2(0), RandomColor());
+			return i;
+		}
+	}
+	m_players.push_back(new ServerUpdate(m_players.size(), glm::vec2(0), glm::vec2(0), RandomColor()));
+	return m_players.back()->id;
 }
 
 void Networking_Server::onDraw() 
@@ -121,10 +211,25 @@ void Networking_Server::onDraw()
 	Gizmos::draw2D(glm::ortho<float>(0.0f, (float)width, 0.0f, (float)height, -1.0f, 1.0f));
 }
 
+void Networking_Server::DestroyData()
+{
+	for (auto data : m_players)
+	{
+		delete data;
+	}
+	m_players.clear();
+}
+
 void Networking_Server::onDestroy()
 {
 	// clean up anything we created
 	Gizmos::destroy();
+
+	RakNet::BitStream outputStream;
+	outputStream.Write((unsigned char)HEADER_SERVER_DOWN);
+	m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, RakNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+	printf("Logging off server.\n");
+	DestroyData();
 }
 
 // main that controls the creation/destruction of an application
