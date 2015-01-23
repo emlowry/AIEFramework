@@ -47,7 +47,8 @@ bool Networking_Client::onCreate(int a_argc, char* a_argv[])
 
 	RakNet::SocketDescriptor sd;
 	m_pInterface->Startup(1, &sd, 1, 0);
-	return Connect();
+	Login();
+	return true;
 }
 
 bool Networking_Client::Connect(float a_timeout)
@@ -56,8 +57,10 @@ bool Networking_Client::Connect(float a_timeout)
 
 	RakNet::Packet* pPacket = nullptr;
 
-	while (Utility::getTotalTime() < a_timeout)
+	float time = Utility::getTotalTime();
+	while (Utility::getTotalTime() - time < a_timeout)
 	{
+		printf("\rConnecting - %f.3 seconds until timeout...", a_timeout - (Utility::getTotalTime() - time));
 		pPacket = m_pInterface->Receive();
 
 		if (pPacket != nullptr)
@@ -65,14 +68,15 @@ bool Networking_Client::Connect(float a_timeout)
 			if (pPacket->data[0] == ID_CONNECTION_REQUEST_ACCEPTED)
 			{
 				m_ServerAddress = pPacket->systemAddress;
-				printf("Connection to server successful!\n");
+				m_pInterface->SetTimeoutTime((RakNet::TimeMS)(TIMEOUT_INTERVAL * 1000), m_ServerAddress);
+				printf("\rConnection to server successful!                                               \n");
 				return true;
 			}
 		}
 		Utility::tickTimer();
 	}
 
-	printf("Connection to server unsuccessful - timeout.\n");
+	printf("\rConnection to server unsuccessful - timeout.                                   \n");
 	return false;
 }
 
@@ -90,8 +94,10 @@ bool Networking_Client::Login(float a_timeout)
 	m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, m_ServerAddress, false);
 
 	RakNet::Packet* pPacket = nullptr;
-	while (Utility::getTotalTime() < a_timeout)
+	float time = Utility::getTotalTime();
+	while (Utility::getTotalTime() - time < a_timeout)
 	{
+		printf("\rLogging in - %f.3 seconds until timeout...", a_timeout - (Utility::getTotalTime() - time));
 		pPacket = m_pInterface->Receive();
 		if (pPacket != nullptr)
 		{
@@ -104,8 +110,11 @@ bool Networking_Client::Login(float a_timeout)
 				{
 					RakNet::RakString inputString;
 					inputStream.Read(inputString);
-					printf("Login unsuccessful - ");
+					printf("\rLogin unsuccessful - ");
 					printf(inputString.C_String());
+					for (unsigned int i = 0; i < 58 - inputString.GetLength(); ++i)
+						printf(" ");
+					printf("\n");
 					return false;
 				}
 				if (pPacket->data[0] == HEADER_SERVER_LOGIN_ACCEPTED)
@@ -114,7 +123,7 @@ bool Networking_Client::Login(float a_timeout)
 					inputStream.Read(id);
 					m_id = id.val;
 					m_loggedIn = true;
-					printf("Logged in as user #%u!\n", m_id);
+					printf("\rLogged in as user #%u!                                                          \n", m_id);
 					return true;
 				}
 			}
@@ -122,7 +131,7 @@ bool Networking_Client::Login(float a_timeout)
 		Utility::tickTimer();
 	}
 
-	printf("Login unsuccessful - timeout.\n");
+	printf("\rLogin unsuccessful - timeout.                                                  \n");
 	return false;
 }
 
@@ -156,9 +165,19 @@ void Networking_Client::onUpdate(float a_deltaTime)
 						 i == 10 ? glm::vec4(1,1,1,1) : glm::vec4(0,0,0,1) );
 	}
 
-	if (!m_loggedIn || RakNet::IS_CONNECTED != m_pInterface->GetConnectionState(m_ServerAddress))
+	// quit our application when escape is pressed
+	if (glfwGetKey(m_window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+		quit();
+
+	if (m_loggedIn && RakNet::IS_CONNECTED != m_pInterface->GetConnectionState(m_ServerAddress))
 	{
+		m_loggedIn = false;
 		DestroyData();
+		return;
+	}
+
+	if (!m_loggedIn)
+	{
 		Login();
 	}
 
@@ -179,7 +198,6 @@ void Networking_Client::onUpdate(float a_deltaTime)
 		if (UPDATE_INTERVAL <= (float)(time - m_players[m_id]->clientTimestamp) / 1000)
 		{
 			sendUpdate = true;
-			m_players[m_id]->clientTimestamp = time;
 		}
 
 		// update and draw player positions
@@ -189,19 +207,76 @@ void Networking_Client::onUpdate(float a_deltaTime)
 			player->position += player->velocity * delta;
 			player->position = glm::clamp(player->position, glm::vec2(-10), glm::vec2(10));
 			player->timeStamp = time;
-			Gizmos::addSphere(glm::vec3(player->position.x, 0, player->position.y), 0.5f, 8, 16,
-							  glm::vec4(player->color, (float)(time - player->clientTimestamp) / (TIMEOUT_INTERVAL * 1000)));
+			Gizmos::addSphere(glm::vec3(player->position.x, 0.5, player->position.y), 0.5f, 8, 16,
+							  glm::vec4(player->color, 1.0f - (float)(time - player->clientTimestamp) / (TIMEOUT_INTERVAL * 1000)));
 		}
 
 		// highlight player character
 		Gizmos::addRing(glm::vec3(m_players[m_id]->position.x, 1, m_players[m_id]->position.y),
 						0.45f, 0.5f, 16, glm::vec4(1.0f, 0.875f, 0.5f, 1.0f));
 
-		// if player velocity changes, send an update
-		glm::vec2 velocity((glfwGetKey(m_window, GLFW_KEY_RIGHT) == GLFW_PRESS ? 1 : 0) -
-						   (glfwGetKey(m_window, GLFW_KEY_LEFT) == GLFW_PRESS ? 1 : 0),
-						   (glfwGetKey(m_window, GLFW_KEY_UP) == GLFW_PRESS ? 1 : 0) -
-						   (glfwGetKey(m_window, GLFW_KEY_DOWN) == GLFW_PRESS ? 1 : 0));
+		// AI-controlled players wander
+		glm::vec2 velocity;
+		if (m_AI)
+		{
+			m_directionOfAI += RandomFloat(16.0, -16.0) * a_deltaTime;
+			while (0.0f > m_directionOfAI)
+			{
+				m_directionOfAI += 8.0f;
+			}
+			while (8.0f <= m_directionOfAI)
+			{
+				m_directionOfAI -= 8.0f;
+			}
+			m_speedOfAI += RandomFloat(3.0, -3.0) * a_deltaTime;
+			while (0.0f > m_speedOfAI)
+			{
+				m_speedOfAI += 3.0f;
+			}
+			while (3.0f <= m_speedOfAI)
+			{
+				m_speedOfAI -= 3.0f;
+			}
+			if (1.0f > m_speedOfAI)
+			{
+				switch ((int)m_directionOfAI)
+				{
+				case 0: velocity = glm::vec2(1, 0); break;
+				case 1: velocity = glm::vec2(1, 1); break;
+				case 2: velocity = glm::vec2(0, 1); break;
+				case 3: velocity = glm::vec2(-1, 1); break;
+				case 4: velocity = glm::vec2(-1, 0); break;
+				case 5: velocity = glm::vec2(-1, -1); break;
+				case 6: velocity = glm::vec2(0, -1); break;
+				case 7: velocity = glm::vec2(1, -1); break;
+				default: velocity = m_players[m_id]->velocity; break;
+				}
+			}
+
+			velocity -= m_players[m_id]->position / 20.0f;
+			velocity.x = (0.5f < velocity.x ? 1.0f : -0.5f > velocity.x ? -1.0f : 0.0f);
+			velocity.y = (0.5f < velocity.y ? 1.0f : -0.5f > velocity.y ? -1.0f : 0.0f);
+
+			m_directionOfAI -= (int)m_directionOfAI;
+			m_directionOfAI += (glm::vec2(1, 0) == velocity ? 0 :
+								glm::vec2(1, 1) == velocity ? 1 :
+								glm::vec2(0, 1) == velocity ? 2 :
+								glm::vec2(-1, 1) == velocity ? 3 :
+								glm::vec2(-1, 0) == velocity ? 4 :
+								glm::vec2(-1, -1) == velocity ? 5 :
+								glm::vec2(0, -1) == velocity ? 6 :
+								glm::vec2(1, -1) == velocity ? 7 : 0);
+		}
+		// human-controlled players respond to keys
+		else
+		{
+			velocity.x = (glfwGetKey(m_window, GLFW_KEY_RIGHT) == GLFW_PRESS ? 1.0f : 0.0f) -
+						 (glfwGetKey(m_window, GLFW_KEY_LEFT) == GLFW_PRESS ? 1.0f : 0.0f);
+			velocity.y = (glfwGetKey(m_window, GLFW_KEY_UP) == GLFW_PRESS ? 1.0f : 0.0f) -
+						 (glfwGetKey(m_window, GLFW_KEY_DOWN) == GLFW_PRESS ? 1.0f : 0.0f);
+		}
+
+		// if velocity has changed, send update
 		if (velocity != m_players[m_id]->velocity)
 		{
 			sendUpdate = true;
@@ -211,16 +286,14 @@ void Networking_Client::onUpdate(float a_deltaTime)
 		// if neccessary, send an update
 		if (sendUpdate)
 		{
+			m_players[m_id]->clientTimestamp = time;
 			RakNet::BitStream outputStream;
 			ClientUpdate update(*m_players[m_id]);
 			update.Encode(outputStream);
 			m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, m_ServerAddress, false);
+			printf("Sent update to server.\n");
 		}
 	}
-
-	// quit our application when escape is pressed
-	if (glfwGetKey(m_window,GLFW_KEY_ESCAPE) == GLFW_PRESS)
-		quit();
 }
 
 bool Networking_Client::ProcessMessages()
@@ -238,6 +311,7 @@ bool Networking_Client::ProcessMessages()
 		case HEADER_UPDATE_REQUEST:
 		{
 			sendUpdate = true;
+			printf("Received update request.\n");
 			break;
 		}
 		case HEADER_CLIENT_LOGOFF:
@@ -252,16 +326,20 @@ bool Networking_Client::ProcessMessages()
 					delete m_players[id];
 					m_players[id] = nullptr;
 				}
-				while (nullptr == m_players.back())
+				while (!m_players.empty() && nullptr == m_players.back())
 					m_players.pop_back();
 			}
-			if (id != m_id)
-				break;
+			if (id == m_id)
+			{
+				m_loggedIn = false;
+			}
+			printf("User #%u logged off.\n", id);
+			break;
 		}
 		case HEADER_SERVER_DOWN:
 		{
 			m_loggedIn = false;
-			printf("Logged off by server!\n");
+			printf("Server shut down!\n");
 			break;
 		}
 		case HEADER_SERVER_UPDATE:
@@ -278,6 +356,7 @@ bool Networking_Client::ProcessMessages()
 					*m_players[update->id] = *update;
 				delete update;
 			}
+			printf("Update to player #%u recieved.\n", update->id);
 			break;
 		}
 		case HEADER_SERVER_USER_LIST:
@@ -300,14 +379,15 @@ bool Networking_Client::ProcessMessages()
 				}
 				for (unsigned int i = 0; i < m_players.size(); ++i)
 				{
-					if (0 == ids.count(i) && nullptr != m_players[i])
+					if (nullptr != m_players[i] && 0 == ids.count(i))
 					{
 						delete m_players[i];
 						m_players[i] = nullptr;
 					}
 				}
-				while (nullptr == m_players.back())
+				while (!m_players.empty() && nullptr == m_players.back())
 					m_players.pop_back();
+				printf("Updated user list recieved.\n");
 			}
 		}
 		}// end of switch statement
@@ -343,6 +423,7 @@ void Networking_Client::onDestroy()
 	m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, m_ServerAddress, false);
 	printf("Logging off server.\n");
 	DestroyData();
+	m_pInterface->Shutdown((unsigned int)(TIMEOUT_INTERVAL * 1000));
 }
 
 // main that controls the creation/destruction of an application
@@ -350,6 +431,19 @@ int main(int argc, char* argv[])
 {
 	// explicitly control the creation of our application
 	Application* app = new Networking_Client();
+
+	for (int i = 0; i < argc; ++i)
+	{
+		if (0 == strcmp(argv[i], "ai") || 0 == strcmp(argv[i], "AI") ||
+			0 == strcmp(argv[i], "aI") || 0 == strcmp(argv[i], "Ai") ||
+			0 == strcmp(argv[i], "-ai") || 0 == strcmp(argv[i], "-AI") ||
+			0 == strcmp(argv[i], "-aI") || 0 == strcmp(argv[i], "-Ai") ||
+			0 == strcmp(argv[i], "--ai") || 0 == strcmp(argv[i], "--AI") ||
+			0 == strcmp(argv[i], "--aI") || 0 == strcmp(argv[i], "--Ai"))
+		{
+			((Networking_Client*)app)->UseAI(true);
+		}
+	}
 	
 	if (app->create("AIE - Networking_Client",DEFAULT_SCREENWIDTH,DEFAULT_SCREENHEIGHT,argc,argv) == true)
 		app->run();

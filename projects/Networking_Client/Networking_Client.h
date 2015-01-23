@@ -15,6 +15,8 @@ public:
 	Networking_Client();
 	virtual ~Networking_Client();
 
+	void UseAI(bool a_use = true) { m_AI = a_use; }
+
 protected:
 
 	virtual bool onCreate(int a_argc, char* a_argv[]);
@@ -37,4 +39,8 @@ protected:
 	RakNet::uint24_t m_id;
 	bool m_loggedIn = false;
 	RakNet::Time m_lastUserListTimestamp = 0;
+
+	bool m_AI = false;
+	float m_directionOfAI = 0;	// 0-1=(1,0), 1-2=(1,1), 2-3=(0,1), 3-4=(-1,1), 4-5=(-1,0), 5-6=(-1,-1), 6-7=(0,-1), 7-8=(1,-1)
+	float m_speedOfAI = 0;	// 0-1=0, 1-3=1
 };

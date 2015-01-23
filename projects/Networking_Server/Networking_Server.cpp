@@ -81,8 +81,8 @@ void Networking_Server::onUpdate(float a_deltaTime)
 		player->position += player->velocity * delta;
 		player->position = glm::clamp(player->position, glm::vec2(-10), glm::vec2(10));
 		player->timeStamp = time;
-		Gizmos::addSphere(glm::vec3(player->position.x, 0, player->position.y), 0.5f, 8, 16,
-			glm::vec4(player->color, (float)(time - player->clientTimestamp) / (TIMEOUT_INTERVAL * 1000)));
+		Gizmos::addSphere(glm::vec3(player->position.x, 0.5, player->position.y), 0.5f, 8, 16,
+			glm::vec4(player->color, 1.0f - (float)(time - player->clientTimestamp) / (TIMEOUT_INTERVAL * 1000)));
 	}
 
 	// if it's been long enough since the last update, send out the user list
@@ -92,6 +92,8 @@ void Networking_Server::onUpdate(float a_deltaTime)
 		RakNet::BitStream outputStream;
 		list.Encode(outputStream);
 		m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, RakNet::UNASSIGNED_SYSTEM_ADDRESS, true);
+		printf("Updated user list broadcast.\n");
+		m_lastUserListTimestamp = time;
 	}
 
 	// quit our application when escape is pressed
@@ -118,11 +120,13 @@ void Networking_Server::ProcessMessages()
 			auto id = newId();
 			outputStream.Write(id);
 			m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, pPacket->systemAddress, false);
+			printf("Player #%u logged in.\n", id);
 
 			// tell all the other players about the new player
 			outputStream.Reset();
 			m_players[id]->Encode(outputStream);
 			m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, pPacket->systemAddress, true);
+			printf("Player #%u login broadcast.\n", id);
 		}
 		case HEADER_UPDATE_REQUEST:
 		{
@@ -131,6 +135,7 @@ void Networking_Server::ProcessMessages()
 			UserList list(m_players);
 			list.Encode(outputStream);
 			m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, pPacket->systemAddress, false);
+			printf("Updated user list sent.\n");
 			break;
 		}
 		case HEADER_CLIENT_LOGOFF:
@@ -148,12 +153,13 @@ void Networking_Server::ProcessMessages()
 					delete m_players[id];
 					m_players[id] = nullptr;
 				}
-				while (nullptr == m_players.back())
+				while (!m_players.empty() && nullptr == m_players.back())
 					m_players.pop_back();
 			}
 
 			// pass message on to other players
 			m_pInterface->Send(&inputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, pPacket->systemAddress, true);
+			printf("Player #%u logoff broadcast.\n", id);
 			break;
 		}
 		case HEADER_CLIENT_UPDATE:
@@ -165,8 +171,10 @@ void Networking_Server::ProcessMessages()
 			if (m_players.size() > update.id && nullptr != m_players[update.id] &&
 				m_players[update.id]->clientTimestamp < update.timeStamp)
 			{
+				*m_players[update.id] = update;
 				m_players[update.id]->Encode(outputStream);
 				m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, pPacket->systemAddress, true);
+				printf("Player #%u update broadcast.\n", update.id);
 			}
 			// otherwise, tell the client that the player isn't valid
 			else
@@ -174,6 +182,7 @@ void Networking_Server::ProcessMessages()
 				outputStream.Write((unsigned char)HEADER_CLIENT_LOGOFF);
 				outputStream.Write(update.id);
 				m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, pPacket->systemAddress, false);
+				printf("Player #%u doesn't exist!\n", update.id);
 			}
 		}
 		} // end of switch statement
@@ -230,6 +239,7 @@ void Networking_Server::onDestroy()
 	m_pInterface->Send(&outputStream, HIGH_PRIORITY, RELIABLE_ORDERED, 0, RakNet::UNASSIGNED_SYSTEM_ADDRESS, true);
 	printf("Logging off server.\n");
 	DestroyData();
+	m_pInterface->Shutdown((unsigned int)(TIMEOUT_INTERVAL * 1000));
 }
 
 // main that controls the creation/destruction of an application

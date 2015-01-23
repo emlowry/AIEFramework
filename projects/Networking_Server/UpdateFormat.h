@@ -40,6 +40,18 @@ struct ClientUpdate
 				 : timeStamp(RakNet::GetTime()), id(a_id),
 				   position(a_position), velocity(a_velocity) {}
 	ClientUpdate(RakNet::BitStream& a_input) { Decode(a_input); }
+	ClientUpdate(const ClientUpdate& a_update)
+		: timeStamp(a_update.timeStamp), id(a_update.id),
+		  position(a_update.position), velocity(a_update.velocity) {}
+
+	ClientUpdate& operator=(const ClientUpdate& a_update)
+	{
+		timeStamp = a_update.timeStamp;
+		id = a_update.id;
+		position = a_update.position;
+		velocity = a_update.velocity;
+		return *this;
+	}
 	
 	virtual void Encode(RakNet::BitStream& a_output)
 	{
@@ -107,7 +119,7 @@ struct ClientUpdate
 
 float RandomFloat(float max = 1.0f, float min = 0.0f)
 {
-	return ((max - min) * (float)rand() / (float)RAND_MAX) + min;
+	return (float)((((double)max - (double)min) * (double)rand() / (double)RAND_MAX) + (double)min);
 }
 
 glm::vec3 RandomColor(bool allowWhite = false, bool allowBlack = false)
@@ -167,6 +179,7 @@ struct ServerUpdate : public ClientUpdate
 	ServerUpdate& operator=(const ServerUpdate& a_update)
 	{
 		timeStamp = a_update.timeStamp;
+		id = a_update.id;
 		position = a_update.position;
 		velocity = a_update.velocity;
 		color = a_update.color;
@@ -176,6 +189,7 @@ struct ServerUpdate : public ClientUpdate
 	ServerUpdate& operator=(const ClientUpdate& a_update)
 	{
 		timeStamp = a_update.timeStamp;
+		id = a_update.id;
 		position = a_update.position;
 		velocity = a_update.velocity;
 		clientTimestamp = a_update.timeStamp;
