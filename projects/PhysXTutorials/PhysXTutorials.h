@@ -26,6 +26,11 @@ protected:
 	void updatePhysX();
 	void cleanUpPhysX();
 
+	void addWidget(PxShape* shape, PxActor* actor);
+	void addSphere(PxShape* pShape, PxActor* actor);
+	void addBox(PxShape* pShape, PxActor* actor);
+	void addPlane(PxShape* pShape, PxActor* actor);
+
 	void tutorial_1();
 
 	glm::mat4	m_cameraMatrix;

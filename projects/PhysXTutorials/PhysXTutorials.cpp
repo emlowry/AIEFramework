@@ -21,7 +21,7 @@ PxDefaultAllocator gDefaultAllocatorCallback;
 PxSimulationFilterShader gDefaultFilterShader = PxDefaultSimulationFilterShader;
 PxMaterial* g_PhysicsMaterial = nullptr;
 PxCooking* g_PhysicsCooker = nullptr;
-std::vector<PxRigidDynamic*> g_PhysXActors;
+std::vector<PxRigidActor*> g_PhysXActors;
 
 PhysXTutorials::PhysXTutorials()
 {
@@ -73,14 +73,7 @@ void PhysXTutorials::onUpdate(float a_deltaTime)
 	Gizmos::addTransform( glm::mat4(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1) );
 
 	// add a 20x20 grid on the XZ-plane
-	for ( int i = 0 ; i < 21 ; ++i )
-	{
-		Gizmos::addLine( glm::vec3(-10 + i, 0, 10), glm::vec3(-10 + i, 0, -10), 
-						 i == 10 ? glm::vec4(1,1,1,1) : glm::vec4(0,0,0,1) );
-		
-		Gizmos::addLine( glm::vec3(10, 0, -10 + i), glm::vec3(-10, 0, -10 + i), 
-						 i == 10 ? glm::vec4(1,1,1,1) : glm::vec4(0,0,0,1) );
-	}
+	Gizmos::addGrid();
 
 	// update PhysX
 	updatePhysX();
@@ -139,7 +132,7 @@ void PhysXTutorials::setUpPhysX()
 	//create physics material
 	g_PhysicsMaterial = g_Physics->createMaterial(0.5f, 0.5f, 0.6f);
 	PxSceneDesc sceneDesc(g_Physics->getTolerancesScale());
-	sceneDesc.gravity = PxVec3(0, -30.0f, 0);
+	sceneDesc.gravity = PxVec3(0, -1.0f, 0);
 	sceneDesc.filterShader = gDefaultFilterShader;
 	sceneDesc.cpuDispatcher = PxDefaultCpuDispatcherCreate(1);
 	g_PhysicsScene = g_Physics->createScene(sceneDesc);
@@ -183,6 +176,116 @@ void PhysXTutorials::updatePhysX()
 	{
 		// don’t need to do anything here yet but we still need to do the fetch
 	}
+
+	// Add widgets to represent all the phsyX actors which are in the scene
+	for (auto actor : g_PhysXActors)
+	{
+		PxU32 nShapes = actor->getNbShapes();
+		PxShape** shapes = new PxShape*[nShapes];
+		actor->getShapes(shapes, nShapes);
+		// Render all the shapes in the physx actor (for early tutorials there is just one)
+		while (nShapes--)
+		{
+			addWidget(shapes[nShapes], actor);
+		}
+		delete[] shapes;
+	}
+}
+
+void PhysXTutorials::addWidget(PxShape* shape, PxActor* actor)
+{
+	PxGeometryType::Enum type = shape->getGeometryType();
+	switch (type)
+	{
+	case PxGeometryType::ePLANE:
+		addPlane(shape, actor);
+		break;
+	case PxGeometryType::eBOX:
+		addBox(shape, actor);
+		break;
+	case PxGeometryType::eSPHERE:
+		addSphere(shape,actor);
+		break;
+	default:
+		break;
+	}
+}
+
+void PhysXTutorials::addSphere(PxShape* pShape, PxActor* actor)
+{
+	//get the geometry for this PhysX collision volume
+	PxSphereGeometry geometry;
+	float radius = 0.5f;
+	bool status = pShape->getSphereGeometry(geometry);
+	if (status)
+	{
+		radius = geometry.radius;
+	}
+	//get the transform for this PhysX collision volume
+	PxMat44 m(PxShapeExt::getGlobalPose(*pShape));
+	glm::mat4 M(m.column0.x, m.column0.y, m.column0.z, m.column0.w,
+		m.column1.x, m.column1.y, m.column1.z, m.column1.w,
+		m.column2.x, m.column2.y, m.column2.z, m.column2.w,
+		m.column3.x, m.column3.y, m.column3.z, m.column3.w);
+	glm::vec3 position;
+	//get the position out of the transform
+	position.x = m.getPosition().x;
+	position.y = m.getPosition().y;
+	position.z = m.getPosition().z;
+	glm::vec4 colour = glm::vec4(1, 0, 0, 1);
+	//create our sphere gizmo
+	Gizmos::addSphere(position, radius, 8, 16, glm::vec4(0,0,1,1), &M);
+}
+
+void PhysXTutorials::addBox(PxShape* pShape, PxActor* actor)
+{
+	//get the geometry for this PhysX collision volume
+	PxBoxGeometry geometry;
+	float width = 1, height = 1, length = 1;
+	bool status = pShape->getBoxGeometry(geometry);
+	if (status)
+	{
+		width = geometry.halfExtents.x;
+		height = geometry.halfExtents.y;
+		length = geometry.halfExtents.z;
+	}
+	//get the transform for this PhysX collision volume
+	PxMat44 m(PxShapeExt::getGlobalPose(*pShape));
+	glm::mat4 M(m.column0.x, m.column0.y, m.column0.z, m.column0.w,
+		m.column1.x, m.column1.y, m.column1.z, m.column1.w,
+		m.column2.x, m.column2.y, m.column2.z, m.column2.w,
+		m.column3.x, m.column3.y, m.column3.z, m.column3.w);
+	glm::vec3 position;
+	//get the position out of the transform
+	position.x = m.getPosition().x;
+	position.y = m.getPosition().y;
+	position.z = m.getPosition().z;
+	glm::vec3 extents = glm::vec3(width, height, length);
+	glm::vec4 colour = glm::vec4(1, 0, 0, 1);
+	//create our box gizmo
+	Gizmos::addAABBFilled(position, extents, colour, &M);
+}
+
+void PhysXTutorials::addPlane(PxShape* pShape, PxActor* actor)
+{
+	//get the transform for this PhysX collision volume
+	PxMat44 m(PxShapeExt::getGlobalPose(*pShape));
+	glm::mat4 M(m.column0.x, m.column0.y, m.column0.z, m.column0.w,
+		m.column1.x, m.column1.y, m.column1.z, m.column1.w,
+		m.column2.x, m.column2.y, m.column2.z, m.column2.w,
+		m.column3.x, m.column3.y, m.column3.z, m.column3.w);
+	glm::vec3 position;
+	//get the position out of the transform
+	position.x = m.getPosition().x;
+	position.y = m.getPosition().y;
+	position.z = m.getPosition().z;
+	//unrotated Gizmo is xz-plane, but unrotated PhysX plane is yz-plane
+	M = M * glm::mat4(0, 1, 0, 0,
+					  1, 0, 0, 0,
+					  0, 0, 1, 0,
+					  0, 0, 0, 1);
+	//create our grid gizmo
+	Gizmos::addGrid(position, 100, 1.0f, glm::vec4(0, 1, 0, 1), &M);
 }
 
 void PhysXTutorials::tutorial_1()
@@ -192,6 +295,8 @@ void PhysXTutorials::tutorial_1()
 	PxRigidStatic* plane = PxCreateStatic(*g_Physics, pose, PxPlaneGeometry(), *g_PhysicsMaterial);
 	//add it to the physX scene
 	g_PhysicsScene->addActor(*plane);
+	//add it to our copy of the scene
+	g_PhysXActors.push_back(plane);
 
 	//add a box
 	float density = 10;
@@ -202,4 +307,13 @@ void PhysXTutorials::tutorial_1()
 	g_PhysicsScene->addActor(*dynamicActor);
 	//add it to our copy of the scene
 	g_PhysXActors.push_back(dynamicActor);
+
+	//add a sphere
+	PxSphereGeometry sphere(2);
+	PxTransform transform2(PxVec3(-5, 20, 0));
+	PxRigidDynamic* dynamicActor2 = PxCreateDynamic(*g_Physics, transform2, sphere, *g_PhysicsMaterial, density);
+	//add it to the physX scene
+	g_PhysicsScene->addActor(*dynamicActor2);
+	//add it to our copy of the scene
+	g_PhysXActors.push_back(dynamicActor2);
 }
