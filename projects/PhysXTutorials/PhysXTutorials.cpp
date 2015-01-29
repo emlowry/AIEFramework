@@ -75,6 +75,17 @@ void PhysXTutorials::onUpdate(float a_deltaTime)
 	// add a 20x20 grid on the XZ-plane
 	Gizmos::addGrid();
 
+	// fire bullet
+	if (glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_PRESS)
+	{
+		float time = Utility::getTotalTime();
+		if (time - m_lastFireTime >= m_fireInterval)
+		{
+			fire();
+			m_lastFireTime = time;
+		}
+	}
+
 	// update PhysX
 	updatePhysX();
 
@@ -97,7 +108,7 @@ void PhysXTutorials::onDraw()
 	// get window dimensions for 2D orthographic projection
 	int width = 0, height = 0;
 	glfwGetWindowSize(m_window, &width, &height);
-	Gizmos::draw2D(glm::ortho<float>(0, width, 0, height, -1.0f, 1.0f));
+	Gizmos::draw2D(glm::ortho<float>(0.0f, (float)width, 0.0f, (float)height, -1.0f, 1.0f));
 }
 
 void PhysXTutorials::onDestroy()
@@ -132,7 +143,7 @@ void PhysXTutorials::setUpPhysX()
 	//create physics material
 	g_PhysicsMaterial = g_Physics->createMaterial(0.5f, 0.5f, 0.6f);
 	PxSceneDesc sceneDesc(g_Physics->getTolerancesScale());
-	sceneDesc.gravity = PxVec3(0, -1.0f, 0);
+	sceneDesc.gravity = PxVec3(0, -10.0f, 0);
 	sceneDesc.filterShader = gDefaultFilterShader;
 	sceneDesc.cpuDispatcher = PxDefaultCpuDispatcherCreate(1);
 	g_PhysicsScene = g_Physics->createScene(sceneDesc);
@@ -286,6 +297,21 @@ void PhysXTutorials::addPlane(PxShape* pShape, PxActor* actor)
 					  0, 0, 0, 1);
 	//create our grid gizmo
 	Gizmos::addGrid(position, 100, 1.0f, glm::vec4(0, 1, 0, 1), &M);
+}
+
+void PhysXTutorials::fire()
+{
+	//add a sphere
+	PxSphereGeometry sphere(m_bulletSize);
+	PxTransform transform(PxVec3(m_cameraMatrix[3].x, m_cameraMatrix[3].y, m_cameraMatrix[3].z));
+	PxRigidDynamic* dynamicActor = PxCreateDynamic(*g_Physics, transform, sphere, *g_PhysicsMaterial, m_bulletDensity);
+	dynamicActor->setLinearVelocity(PxVec3(-m_cameraMatrix[2].x * m_bulletSpeed,
+										   -m_cameraMatrix[2].y * m_bulletSpeed,
+										   -m_cameraMatrix[2].z * m_bulletSpeed));
+	//add it to the physX scene
+	g_PhysicsScene->addActor(*dynamicActor);
+	//add it to our copy of the scene
+	g_PhysXActors.push_back(dynamicActor);
 }
 
 void PhysXTutorials::tutorial_1()

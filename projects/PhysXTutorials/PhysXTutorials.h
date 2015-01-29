@@ -31,7 +31,16 @@ protected:
 	void addBox(PxShape* pShape, PxActor* actor);
 	void addPlane(PxShape* pShape, PxActor* actor);
 
+	void fire();
+
 	void tutorial_1();
+
+	float m_lastFireTime = 0.0f;
+
+	float m_fireInterval = 0.25f;
+	float m_bulletSpeed = 50.0f;
+	float m_bulletDensity = 50.0f;
+	float m_bulletSize = 0.5f;
 
 	glm::mat4	m_cameraMatrix;
 	glm::mat4	m_projectionMatrix;
