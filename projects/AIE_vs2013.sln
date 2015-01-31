@@ -43,6 +43,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Networking_Server", "Networ
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PhysXTutorials", "PhysXTutorials\PhysXTutorials.vcxproj", "{85880C45-FAA6-4FA0-886F-C64C4BB4B922}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Physics2D", "Physics2D\Physics2D.vcxproj", "{2FA70EB6-F742-40E9-B13B-5C0B3FBA41A6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -129,6 +131,10 @@ Global
 		{85880C45-FAA6-4FA0-886F-C64C4BB4B922}.Debug|Win32.Build.0 = Debug|Win32
 		{85880C45-FAA6-4FA0-886F-C64C4BB4B922}.Release|Win32.ActiveCfg = Release|Win32
 		{85880C45-FAA6-4FA0-886F-C64C4BB4B922}.Release|Win32.Build.0 = Release|Win32
+		{2FA70EB6-F742-40E9-B13B-5C0B3FBA41A6}.Debug|Win32.ActiveCfg = Debug|Win32
+		{2FA70EB6-F742-40E9-B13B-5C0B3FBA41A6}.Debug|Win32.Build.0 = Debug|Win32
+		{2FA70EB6-F742-40E9-B13B-5C0B3FBA41A6}.Release|Win32.ActiveCfg = Release|Win32
+		{2FA70EB6-F742-40E9-B13B-5C0B3FBA41A6}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
