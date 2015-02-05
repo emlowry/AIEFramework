@@ -23,6 +23,89 @@ PxMaterial* g_PhysicsMaterial = nullptr;
 PxCooking* g_PhysicsCooker = nullptr;
 std::vector<PxRigidActor*> g_PhysXActors;
 
+struct FilterGroup
+{
+	enum Enum
+	{
+		ePLAYER = (1 << 0),
+		ePLATFORM = (1 << 1),
+		eGROUND = (1 << 2)
+	};
+};
+
+
+//helper function to set up filtering
+void setupFiltering(PxRigidActor* actor, PxU32 filterGroup, PxU32 filterMask)
+{
+	PxFilterData filterData;
+	filterData.word0 = filterGroup; // word0 = own ID
+	filterData.word1 = filterMask;  // word1 = ID mask to filter pairs that trigger a contact callback;
+	const PxU32 numShapes = actor->getNbShapes();
+	PxShape** shapes = (PxShape**)_aligned_malloc(sizeof(PxShape*)*numShapes, 16);
+	actor->getShapes(shapes, numShapes);
+	for (PxU32 i = 0; i < numShapes; i++)
+	{
+		PxShape* shape = shapes[i];
+		shape->setSimulationFilterData(filterData);
+	}
+	_aligned_free(shapes);
+}
+
+//derived class to overide the call backs we are interested in...
+class MycollisionCallBack : public PxSimulationEventCallback
+{
+	virtual void MycollisionCallBack::onContact(const PxContactPairHeader& pairHeader, const PxContactPair* pairs, PxU32 nbPairs)
+	{
+		bool reset = false;
+		for (PxU32 i = 0; i < nbPairs; i++)
+		{
+			const PxContactPair& cp = pairs[i];
+			if (cp.events & PxPairFlag::eNOTIFY_TOUCH_FOUND)
+			{
+				reset = true;
+				std::cout << "collision: " << pairHeader.actors[0]->getName() << " : " << pairHeader.actors[1]->getName() << std::endl;
+			}
+		}
+		/*if (reset)
+		{
+			(*m_playerActor)->setGlobalPose(*m_startingPlayerPos);
+			(*m_playerActor)->setLinearVelocity(PxVec3(0, 0, 0));
+			(*m_playerActor)->setAngularVelocity(PxVec3(0, 0, 0));
+		}/**/
+	}
+	//we have to create versions of the following functions even though we don't do anything with them...
+	virtual void    onTrigger(PxTriggerPair* pairs, PxU32 nbPairs)
+	{
+		bool reset = false;
+		for (PxU32 i = 0; i < nbPairs; i++)
+		{
+			const PxTriggerPair& cp = pairs[i];
+			if (cp.status & PxPairFlag::eNOTIFY_TOUCH_FOUND)
+			{
+				reset = true;
+				std::cout << "trigger " << cp.triggerShape->getName() << " tripped by " << cp.otherShape->getName() << std::endl;
+			}
+		}
+		if (reset)
+		{
+			(*m_playerActor)->setGlobalPose(*m_startingPlayerPos);
+			(*m_playerActor)->setLinearVelocity(PxVec3(0, 0, 0));
+			(*m_playerActor)->setAngularVelocity(PxVec3(0, 0, 0));
+		}
+	};
+	virtual void	onConstraintBreak(PxConstraintInfo*, PxU32){};
+	virtual void	onWake(PxActor**, PxU32){};
+	virtual void	onSleep(PxActor**, PxU32){};
+
+	PxRigidDynamic** m_playerActor;
+	PxTransform* m_startingPlayerPos;
+
+public:
+
+	MycollisionCallBack(PxRigidDynamic*& a_playerActor, PxTransform& a_startingPlayerPos)
+		: m_playerActor(&a_playerActor), m_startingPlayerPos(&a_startingPlayerPos) {}
+};
+
 PhysXTutorials::PhysXTutorials()
 {
 
@@ -39,7 +122,7 @@ bool PhysXTutorials::onCreate(int a_argc, char* a_argv[])
 	Gizmos::create();
 
 	// create a world-space matrix for a camera
-	m_cameraMatrix = glm::inverse( glm::lookAt(glm::vec3(10,10,10),glm::vec3(0,0,0), glm::vec3(0,1,0)) );
+	m_cameraMatrix = glm::inverse( glm::lookAt(glm::vec3(-20,20,-20),glm::vec3(0,0,0), glm::vec3(0,1,0)) );
 
 	// get window dimensions to calculate aspect ratio
 	int width = 0, height = 0;
@@ -55,7 +138,7 @@ bool PhysXTutorials::onCreate(int a_argc, char* a_argv[])
 
 	// Set up PhysX
 	setUpPhysX();
-	tutorial_1();
+	tutorial_2();
 	setUpVisualDebugger();
 
 	return true;
@@ -75,8 +158,10 @@ void PhysXTutorials::onUpdate(float a_deltaTime)
 	// add a 20x20 grid on the XZ-plane
 	Gizmos::addGrid();
 
+	controlPlayer(a_deltaTime);
+
 	// fire bullet
-	if (glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_PRESS)
+	if (glfwGetKey(m_window, GLFW_KEY_ENTER) == GLFW_PRESS)
 	{
 		float time = Utility::getTotalTime();
 		if (time - m_lastFireTime >= m_fireInterval)
@@ -133,6 +218,27 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
+PxFilterFlags myFliterShader(
+	PxFilterObjectAttributes attributes0, PxFilterData filterData0,
+	PxFilterObjectAttributes attributes1, PxFilterData filterData1,
+	PxPairFlags& pairFlags, const void* constantBlock, PxU32 constantBlockSize)
+{
+	// let triggers through
+	if (PxFilterObjectIsTrigger(attributes0) || PxFilterObjectIsTrigger(attributes1))
+	{
+		pairFlags = PxPairFlag::eTRIGGER_DEFAULT;
+		return PxFilterFlag::eDEFAULT;
+	}
+	// generate contacts for all that were not filtered above
+	pairFlags = PxPairFlag::eCONTACT_DEFAULT;
+	// trigger the contact callback for pairs (A,B) where
+	// the filtermask of A contains the ID of B and vice versa.
+	if ((filterData0.word0 & filterData1.word1) && (filterData1.word0 & filterData0.word1))
+		pairFlags |= PxPairFlag::eNOTIFY_TOUCH_FOUND;
+
+	return PxFilterFlag::eDEFAULT;
+}
+
 void PhysXTutorials::setUpPhysX()
 {
 	PxAllocatorCallback *myCallback = new myAllocator();
@@ -144,7 +250,7 @@ void PhysXTutorials::setUpPhysX()
 	g_PhysicsMaterial = g_Physics->createMaterial(0.5f, 0.5f, 0.6f);
 	PxSceneDesc sceneDesc(g_Physics->getTolerancesScale());
 	sceneDesc.gravity = PxVec3(0, -10.0f, 0);
-	sceneDesc.filterShader = gDefaultFilterShader;
+	sceneDesc.filterShader = myFliterShader;
 	sceneDesc.cpuDispatcher = PxDefaultCpuDispatcherCreate(1);
 	g_PhysicsScene = g_Physics->createScene(sceneDesc);
 
@@ -152,6 +258,10 @@ void PhysXTutorials::setUpPhysX()
 	{
 		std::cout << "start physx scene2";
 	}
+
+	PxSimulationEventCallback* mycollisionCallBack =
+		new MycollisionCallBack(m_playerActor, m_startingPlayerPos);  //instantiate our class to overload call backs
+	g_PhysicsScene->setSimulationEventCallback(mycollisionCallBack); //tell the scene to use our call back class
 }
 
 void PhysXTutorials::setUpVisualDebugger()
@@ -216,6 +326,9 @@ void PhysXTutorials::addWidget(PxShape* shape, PxActor* actor)
 		break;
 	case PxGeometryType::eSPHERE:
 		addSphere(shape,actor);
+		break;
+	case PxGeometryType::eCAPSULE:
+		addCapsule(shape, actor);
 		break;
 	default:
 		break;
@@ -299,6 +412,54 @@ void PhysXTutorials::addPlane(PxShape* pShape, PxActor* actor)
 	Gizmos::addGrid(position, 100, 1.0f, glm::vec4(0, 1, 0, 1), &M);
 }
 
+glm::mat4 Px2Glm(const PxMat44& a_m)
+{
+	return glm::mat4(a_m.column0.x, a_m.column0.y, a_m.column0.z, a_m.column0.w,
+					 a_m.column1.x, a_m.column1.y, a_m.column1.z, a_m.column1.w,
+					 a_m.column2.x, a_m.column2.y, a_m.column2.z, a_m.column2.w,
+					 a_m.column3.x, a_m.column3.y, a_m.column3.z, a_m.column3.w);
+}
+
+glm::vec3 Px2GlV3(const PxVec3& a_v)
+{
+	return glm::vec3(a_v.x, a_v.y, a_v.z);
+}
+
+void PhysXTutorials::addCapsule(PxShape* pShape, PxActor* actor)
+{
+	//creates a gizmo representation of a capsule using 2 spheres and a cylinder
+
+	glm::vec4 colour(0, 0, 1, 1);  //make our capsule blue
+	PxCapsuleGeometry capsuleGeometry;
+	float radius = 1; //temporary values whilst we try and get the real value from PhysX
+	float halfHeight = 1;;
+	//get the geometry for this PhysX collision volume
+	bool status = pShape->getCapsuleGeometry(capsuleGeometry);
+	if (status)
+	{
+		//this should always happen but just to be safe we check the status flag
+		radius = capsuleGeometry.radius; //copy out capsule radius
+		halfHeight = capsuleGeometry.halfHeight; //copy out capsule half length
+	}
+	//get the world transform for the centre of this PhysX collision volume
+	PxTransform transform = PxShapeExt::getGlobalPose(*pShape);
+	//use it to create a matrix
+	PxMat44 m(transform);
+	//convert it to an open gl matrix for adding our gizmos
+	glm::mat4 M = Px2Glm(m);
+	//get the world position from the PhysX tranform
+	glm::vec3 position = Px2GlV3(transform.p);
+	glm::vec4 axis(halfHeight, 0, 0, 0);	//axis for the capsule
+	axis = M * axis; //rotate axis to correct orientation
+	//add our 2 end cap spheres...
+	Gizmos::addSphere(position + axis.xyz, 10, 10, radius, colour);
+	Gizmos::addSphere(position - axis.xyz, 10, 10, radius, colour);
+	//the cylinder gizmo is oriented 90 degrees to what we want so we need to change the rotation matrix...
+	glm::mat4 m2 = glm::rotate(M, 11 / 7.0f, glm::vec3(0.0f, 0.0f, 1.0f)); //adds an additional rotation onto the matrix
+	//now we can use this matrix and the other data to create the cylinder...
+	Gizmos::addCylinderFilled(position, radius, halfHeight, 10, colour, &m2);
+}
+
 void PhysXTutorials::fire()
 {
 	//add a sphere
@@ -314,10 +475,40 @@ void PhysXTutorials::fire()
 	g_PhysXActors.push_back(dynamicActor);
 }
 
+void PhysXTutorials::controlPlayer(float a_deltaTime)
+{
+	PxTransform pose = m_playerActor->getGlobalPose(); //get the pose from PhysX
+	pose.q = PxQuat(11 / 7.0f, PxVec3(0, 0, 1));  //force the actor rotation to vertical
+	m_playerActor->setGlobalPose(pose); //reset the actor pose
+	//set linear damping on our actor so it slows down when we stop pressing the key
+	m_playerActor->setLinearDamping(1);
+
+	if (glfwGetKey(m_window, GLFW_KEY_UP) == GLFW_PRESS)
+	{
+		m_playerActor->addForce(PxVec3(100, 0, 0));
+	}
+	if (glfwGetKey(m_window, GLFW_KEY_DOWN) == GLFW_PRESS)
+	{
+		m_playerActor->addForce(PxVec3(-100, 0, 0));
+	}
+	if (glfwGetKey(m_window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+	{
+		m_playerActor->addForce(PxVec3(0, 0, 100));
+	}
+	if (glfwGetKey(m_window, GLFW_KEY_LEFT) == GLFW_PRESS)
+	{
+		m_playerActor->addForce(PxVec3(0, 0, -100));
+	}
+	if (glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_PRESS)
+	{
+		m_playerActor->addForce(PxVec3(0, 200, 0));
+	}
+}
+
 void PhysXTutorials::tutorial_1()
 {
 	//add a plane
-	PxTransform pose = PxTransform(PxVec3(0.0f, 0, 0.0f), PxQuat(PxHalfPi*0.95f, PxVec3(0.0f, 0.0f, 1.0f)));
+	PxTransform pose = PxTransform(PxVec3(0.0f, 0, 0.0f), PxQuat(PxHalfPi, PxVec3(0.0f, 0.0f, 1.0f)));
 	PxRigidStatic* plane = PxCreateStatic(*g_Physics, pose, PxPlaneGeometry(), *g_PhysicsMaterial);
 	//add it to the physX scene
 	g_PhysicsScene->addActor(*plane);
@@ -342,4 +533,54 @@ void PhysXTutorials::tutorial_1()
 	g_PhysicsScene->addActor(*dynamicActor2);
 	//add it to our copy of the scene
 	g_PhysXActors.push_back(dynamicActor2);
+}
+
+void PhysXTutorials::tutorial_2()
+{
+	//add a plane
+	PxTransform pose = PxTransform(PxVec3(0.0f, 0, 0.0f), PxQuat(PxHalfPi, PxVec3(0.0f, 0.0f, 1.0f)));
+	PxRigidStatic* plane = PxCreateStatic(*g_Physics, pose, PxPlaneGeometry(), *g_PhysicsMaterial);
+	//add it to the physX scene
+	g_PhysicsScene->addActor(*plane);
+	//add it to our copy of the scene
+	g_PhysXActors.push_back(plane);
+	plane->setName("Ground");
+	setupFiltering(plane, FilterGroup::eGROUND, FilterGroup::ePLAYER);// | FilterGroup::ePLATFORM);
+
+	PxCapsuleGeometry capsule(1, 2);
+	//set it's initial transform and set it vertical.
+	m_startingPlayerPos = PxTransform(PxVec3(0, 10, 0), PxQuat(11 / 7.0f, PxVec3(0, 0, 1)));
+	m_playerActor = PxCreateDynamic(*g_Physics, m_startingPlayerPos, capsule, *g_PhysicsMaterial, 1);
+	//add it to the physX scene
+	g_PhysicsScene->addActor(*m_playerActor);
+	g_PhysXActors.push_back(m_playerActor);
+	m_playerActor->setName("Player");
+
+	setupFiltering(m_playerActor, FilterGroup::ePLAYER, FilterGroup::eGROUND);// | FilterGroup::ePLATFORM);  //set up the collision filtering for our player
+
+	addPlatforms();
+}
+
+void PhysXTutorials::addPlatforms()
+{
+	for (auto staticObjectPtr : gStaticObject)
+	{
+		PxBoxGeometry box(staticObjectPtr->extents);
+		PxTransform pose = PxTransform(staticObjectPtr->centre);
+		PxRigidStatic*staticObject = PxCreateStatic(*g_Physics, pose, box, *g_PhysicsMaterial);
+		if (staticObjectPtr->trigger)
+		{
+			PxShape* objectShape;
+			staticObject->getShapes(&objectShape, 1);
+			objectShape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);
+			objectShape->setFlag(PxShapeFlag::eTRIGGER_SHAPE, true);
+		}
+		//add it to the physX scene
+		g_PhysicsScene->addActor(*staticObject);
+		//setupFiltering(staticObject, FilterGroup::ePLATFORM, FilterGroup::eGROUND | FilterGroup::ePLAYER);
+
+		g_PhysXActors.push_back(staticObject);
+		staticObject->setName(staticObjectPtr->name);
+
+	}
 }
