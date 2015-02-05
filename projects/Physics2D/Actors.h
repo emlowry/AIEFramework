@@ -48,6 +48,9 @@ public:
 			m_geometry->Render(m_color);
 	}
 
+	const glm::vec4& GetColor() { return m_color; }
+	glm::vec3 GetPosition() { return (nullptr == m_geometry ? glm::vec3(0) : m_geometry->position); }
+
 protected:
 
 	glm::vec4 m_color;

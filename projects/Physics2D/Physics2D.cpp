@@ -24,7 +24,7 @@ bool Physics2D::onCreate(int a_argc, char* a_argv[])
 	Gizmos::create();
 
 	// create a world-space matrix for a camera
-	m_cameraMatrix = glm::inverse( glm::lookAt(glm::vec3(0,0,25),glm::vec3(0,0,0), glm::vec3(0,1,0)) );
+	m_cameraMatrix = glm::inverse( glm::lookAt(glm::vec3(0,0,50),glm::vec3(0,0,0), glm::vec3(0,1,0)) );
 
 	// get window dimensions to calculate aspect ratio
 	int width = 0, height = 0;
@@ -39,13 +39,35 @@ bool Physics2D::onCreate(int a_argc, char* a_argv[])
 	glEnable(GL_CULL_FACE);
 
 	m_scene = new Scene();
-	m_scene->AddActor(new Actor(new Geometry::Plane(glm::vec3(0, 0, 1)), glm::vec4(0, 0, 0, 1)));
-	m_scene->AddActor(new Actor(new Geometry::Sphere(), glm::vec4(1, 0, 0, 1), 1, glm::vec3(5, 10, 0)));
-	m_scene->AddActor(new Actor(new Geometry::Sphere(), glm::vec4(0, 1, 0, 1), 1, glm::vec3(2.5, 10, 0)));
-	m_scene->AddActor(new Actor(new Geometry::Sphere(), glm::vec4(0, 0, 1, 1), 1, glm::vec3(0, 10, 0)));
-	m_scene->AddActor(new Actor(new Geometry::Sphere(), glm::vec4(1, 1, 0, 1), 1, glm::vec3(5, 0, 0)));
+	m_scene->AddActor(new Actor(new Geometry::Plane(glm::vec3(0, 0, 1), glm::vec3(0), glm::vec3(0, 1, 0), 40), glm::vec4(0, 0, 0, 1)));
+	LaunchProjectile(glm::quarter_pi<float>(), 20, glm::vec4(1, 0, 0, 1));
+	LaunchProjectile(glm::pi<float>() / 3, 20, glm::vec4(0, 1, 0, 1));
+	LaunchProjectile(glm::half_pi<float>(), 20, glm::vec4(0, 0, 1, 1));
+	LaunchProjectile(0, 20, glm::vec4(1, 1, 0, 1));
 	
 	return true;
+}
+
+void Physics2D::LaunchProjectile(float a_angle, float a_speed, const glm::vec4& a_color)
+{
+	m_scene->AddActor(new Actor(new Geometry::Sphere(0.5f, glm::vec3(-20,0,0)), a_color, 1,
+								glm::vec3(glm::cos(a_angle), glm::sin(a_angle), 0) * a_speed));
+}
+
+void Physics2D::DrawGuide(float a_angle, float a_speed, const glm::vec4& a_color, unsigned int a_segments, float a_segmentTime)
+{
+	for (unsigned int i = 0; i < a_segments; ++i)
+	{
+		float t1 = a_segmentTime * i;
+		float t2 = a_segmentTime * (i+1);
+		Gizmos::addLine(glm::vec3(-20.0f + a_speed*t1*glm::cos(a_angle),
+								  a_speed*t1*glm::sin(a_angle) - 9.81f*t1*t1/2,
+								  0),
+						glm::vec3(-20.0f + a_speed*t2*glm::cos(a_angle),
+								  a_speed*t2*glm::sin(a_angle) - 9.81f*t2*t2 / 2,
+								  0),
+						a_color);
+	}
 }
 
 void Physics2D::onUpdate(float a_deltaTime) 
@@ -59,8 +81,21 @@ void Physics2D::onUpdate(float a_deltaTime)
 	// add an identity matrix gizmo
 	Gizmos::addTransform( glm::mat4(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1) );
 
-	m_scene->Update();
+	DrawGuide(glm::quarter_pi<float>(), 20, glm::vec4(1, 0, 0, 1));
+	DrawGuide(glm::pi<float>() / 3, 20, glm::vec4(0, 1, 0, 1));
+	DrawGuide(glm::half_pi<float>(), 20, glm::vec4(0, 0, 1, 1));
+	DrawGuide(0, 20, glm::vec4(1, 1, 0, 1));
 
+	for (auto point : m_points)
+	{
+		Gizmos::addSphere(point.position, 0.25f, 2, 4, point.color);
+	}
+
+	m_scene->Update();
+	for (auto actor : m_scene->GetActors())
+	{
+		m_points.push_back(DataPoint(actor->GetPosition(), actor->GetColor()));
+	}
 	m_scene->Render();
 
 	// add a 20x20 grid on the XZ-plane
@@ -105,6 +140,8 @@ void Physics2D::onDestroy()
 		delete m_scene;
 		m_scene = nullptr;
 	}
+
+	m_points.clear();
 }
 
 // main that controls the creation/destruction of an application

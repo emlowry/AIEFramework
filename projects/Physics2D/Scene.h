@@ -6,8 +6,8 @@ class Scene
 {
 public:
 
-	Scene(const glm::vec3& a_gravity = glm::vec3(0, -9.81, 0),
-		float a_timeStep = 0.1f)
+	Scene(const glm::vec3& a_gravity = glm::vec3(0.0f, -9.81f, 0.0f),
+		float a_timeStep = 0.05f)
 		: m_gravity(a_gravity), m_timeStep(a_timeStep),
 		m_lastUpdate(Utility::getTotalTime()) {}
 	~Scene() { ClearActors(); }
@@ -40,6 +40,8 @@ public:
 		for (auto actor : m_actors)
 			actor->Render();
 	}
+
+	const std::vector<Actor*>& GetActors() { return m_actors; }
 
 protected:
 
