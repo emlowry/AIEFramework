@@ -36,6 +36,7 @@ protected:
 	void addPlatforms();
 
 	void fire();
+	void reset();
 
 	void tutorial_1();
 	void tutorial_2();
@@ -50,7 +51,7 @@ protected:
 	glm::mat4	m_cameraMatrix;
 	glm::mat4	m_projectionMatrix;
 
-	PxRigidDynamic* m_playerActor;
+	PxRigidDynamic* m_playerActor = nullptr;
 	PxTransform m_startingPlayerPos;
 };
 

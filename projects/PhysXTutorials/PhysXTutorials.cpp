@@ -6,6 +6,7 @@
 #include <glm/ext.hpp>
 #include <vector>
 #include <iostream>
+#include <functional>
 
 #define DEFAULT_SCREENWIDTH 1280
 #define DEFAULT_SCREENHEIGHT 720
@@ -54,6 +55,7 @@ void setupFiltering(PxRigidActor* actor, PxU32 filterGroup, PxU32 filterMask)
 //derived class to overide the call backs we are interested in...
 class MycollisionCallBack : public PxSimulationEventCallback
 {
+	typedef std::function<void(void)> Callback;
 	virtual void MycollisionCallBack::onContact(const PxContactPairHeader& pairHeader, const PxContactPair* pairs, PxU32 nbPairs)
 	{
 		bool reset = false;
@@ -67,11 +69,7 @@ class MycollisionCallBack : public PxSimulationEventCallback
 			}
 		}
 		/*if (reset)
-		{
-			(*m_playerActor)->setGlobalPose(*m_startingPlayerPos);
-			(*m_playerActor)->setLinearVelocity(PxVec3(0, 0, 0));
-			(*m_playerActor)->setAngularVelocity(PxVec3(0, 0, 0));
-		}/**/
+			m_reset();/**/
 	}
 	//we have to create versions of the following functions even though we don't do anything with them...
 	virtual void    onTrigger(PxTriggerPair* pairs, PxU32 nbPairs)
@@ -83,27 +81,27 @@ class MycollisionCallBack : public PxSimulationEventCallback
 			if (cp.status & PxPairFlag::eNOTIFY_TOUCH_FOUND)
 			{
 				reset = true;
-				std::cout << "trigger " << cp.triggerShape->getName() << " tripped by " << cp.otherShape->getName() << std::endl;
+				std::cout << "trigger ";
+				if (nullptr != cp.triggerShape && nullptr != cp.triggerShape->getName())
+					std::cout << cp.triggerShape->getName() << " ";
+				std::cout << "tripped";
+				if (nullptr != cp.otherShape && nullptr != cp.otherShape->getName())
+					std::cout << " by " << cp.otherShape->getName();
+				std::cout << std::endl;
 			}
 		}
 		if (reset)
-		{
-			(*m_playerActor)->setGlobalPose(*m_startingPlayerPos);
-			(*m_playerActor)->setLinearVelocity(PxVec3(0, 0, 0));
-			(*m_playerActor)->setAngularVelocity(PxVec3(0, 0, 0));
-		}
+			m_reset();
 	};
 	virtual void	onConstraintBreak(PxConstraintInfo*, PxU32){};
 	virtual void	onWake(PxActor**, PxU32){};
 	virtual void	onSleep(PxActor**, PxU32){};
 
-	PxRigidDynamic** m_playerActor;
-	PxTransform* m_startingPlayerPos;
+	Callback m_reset;
 
 public:
 
-	MycollisionCallBack(PxRigidDynamic*& a_playerActor, PxTransform& a_startingPlayerPos)
-		: m_playerActor(&a_playerActor), m_startingPlayerPos(&a_startingPlayerPos) {}
+	MycollisionCallBack(Callback a_reset) : m_reset(a_reset) {}
 };
 
 PhysXTutorials::PhysXTutorials()
@@ -260,7 +258,7 @@ void PhysXTutorials::setUpPhysX()
 	}
 
 	PxSimulationEventCallback* mycollisionCallBack =
-		new MycollisionCallBack(m_playerActor, m_startingPlayerPos);  //instantiate our class to overload call backs
+		new MycollisionCallBack([this] { this->reset(); });  //instantiate our class to overload call backs
 	g_PhysicsScene->setSimulationEventCallback(mycollisionCallBack); //tell the scene to use our call back class
 }
 
@@ -288,6 +286,8 @@ void PhysXTutorials::cleanUpPhysX()
 	g_PhysicsScene->release();
 	g_Physics->release();
 	g_PhysicsFoundation->release();
+	m_playerActor = nullptr;
+	g_PhysXActors.clear();
 }
 
 void PhysXTutorials::updatePhysX()
@@ -452,8 +452,8 @@ void PhysXTutorials::addCapsule(PxShape* pShape, PxActor* actor)
 	glm::vec4 axis(halfHeight, 0, 0, 0);	//axis for the capsule
 	axis = M * axis; //rotate axis to correct orientation
 	//add our 2 end cap spheres...
-	Gizmos::addSphere(position + axis.xyz, 10, 10, radius, colour);
-	Gizmos::addSphere(position - axis.xyz, 10, 10, radius, colour);
+	Gizmos::addSphere(position + axis.xyz, radius, 10, 10, colour);
+	Gizmos::addSphere(position - axis.xyz, radius, 10, 10, colour);
 	//the cylinder gizmo is oriented 90 degrees to what we want so we need to change the rotation matrix...
 	glm::mat4 m2 = glm::rotate(M, 11 / 7.0f, glm::vec3(0.0f, 0.0f, 1.0f)); //adds an additional rotation onto the matrix
 	//now we can use this matrix and the other data to create the cylinder...
@@ -475,6 +475,17 @@ void PhysXTutorials::fire()
 	g_PhysXActors.push_back(dynamicActor);
 }
 
+void PhysXTutorials::reset()
+{
+	if (nullptr != m_playerActor)
+	{
+		m_playerActor->setGlobalPose(m_startingPlayerPos);
+		m_playerActor->setLinearVelocity(PxVec3(0, 0, 0));
+		m_playerActor->setAngularVelocity(PxVec3(0, 0, 0));
+	}
+	m_cameraMatrix = glm::inverse(glm::lookAt(glm::vec3(-20, 20, -20), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0)));
+}
+
 void PhysXTutorials::controlPlayer(float a_deltaTime)
 {
 	PxTransform pose = m_playerActor->getGlobalPose(); //get the pose from PhysX
@@ -485,19 +496,43 @@ void PhysXTutorials::controlPlayer(float a_deltaTime)
 
 	if (glfwGetKey(m_window, GLFW_KEY_UP) == GLFW_PRESS)
 	{
-		m_playerActor->addForce(PxVec3(100, 0, 0));
+		glm::vec3 force = glm::vec3(m_cameraMatrix[2].x, 0, m_cameraMatrix[2].z);
+		if (0.0f == force.x && 0.0f == force.z)
+			force = glm::vec3(m_cameraMatrix[1].x, 0, m_cameraMatrix[1].z);
+		force = glm::normalize(force) * -100.0f;
+		m_playerActor->addForce(PxVec3(force.x, 0, force.z));
 	}
 	if (glfwGetKey(m_window, GLFW_KEY_DOWN) == GLFW_PRESS)
 	{
-		m_playerActor->addForce(PxVec3(-100, 0, 0));
+		glm::vec3 force = glm::vec3(m_cameraMatrix[2].x, 0, m_cameraMatrix[2].z);
+		if (0.0f == force.x && 0.0f == force.z)
+			force = glm::vec3(m_cameraMatrix[1].x, 0, m_cameraMatrix[1].z);
+		force = glm::normalize(force) * 100.0f;
+		m_playerActor->addForce(PxVec3(force.x, 0, force.z));
 	}
 	if (glfwGetKey(m_window, GLFW_KEY_RIGHT) == GLFW_PRESS)
 	{
-		m_playerActor->addForce(PxVec3(0, 0, 100));
+		glm::vec3 force = glm::vec3(m_cameraMatrix[0].x, 0, m_cameraMatrix[0].z);
+		if (0.0f == force.x && 0.0f == force.z)
+		{
+			force = glm::vec3(m_cameraMatrix[1].x, 0, m_cameraMatrix[1].z);
+			if (0 > glm::dot(m_cameraMatrix[1].xyz(), glm::vec3(0, 1, 0)))
+				force *= -1.0f;
+		}
+		force = glm::normalize(force) * 100.0f;
+		m_playerActor->addForce(PxVec3(force.x, 0, force.z));
 	}
 	if (glfwGetKey(m_window, GLFW_KEY_LEFT) == GLFW_PRESS)
 	{
-		m_playerActor->addForce(PxVec3(0, 0, -100));
+		glm::vec3 force = glm::vec3(m_cameraMatrix[0].x, 0, m_cameraMatrix[0].z);
+		if (0.0f == force.x && 0.0f == force.z)
+		{
+			force = glm::vec3(m_cameraMatrix[1].x, 0, m_cameraMatrix[1].z);
+			if (0 > glm::dot(m_cameraMatrix[1].xyz(), glm::vec3(0, 1, 0)))
+				force *= -1.0f;
+		}
+		force = glm::normalize(force) * -100.0f;
+		m_playerActor->addForce(PxVec3(force.x, 0, force.z));
 	}
 	if (glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_PRESS)
 	{
