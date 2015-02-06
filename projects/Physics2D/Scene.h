@@ -32,6 +32,12 @@ public:
 			m_lastUpdate += m_timeStep;
 			for (auto actor : m_actors)
 				actor->Update(m_timeStep, m_gravity);
+
+			for (unsigned int i = 0; i < m_actors.size(); ++i)
+			{
+				for (unsigned int j = i + 1; j < m_actors.size(); ++j)
+					Actor::ResolveCollision(m_actors[i], m_actors[j]);
+			}
 		}
 	}
 

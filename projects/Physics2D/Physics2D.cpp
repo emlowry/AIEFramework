@@ -24,7 +24,7 @@ bool Physics2D::onCreate(int a_argc, char* a_argv[])
 	Gizmos::create();
 
 	// create a world-space matrix for a camera
-	m_cameraMatrix = glm::inverse( glm::lookAt(glm::vec3(0,0,50),glm::vec3(0,0,0), glm::vec3(0,1,0)) );
+	m_cameraMatrix = glm::inverse( glm::lookAt(glm::vec3(10,10,10),glm::vec3(0,0,0), glm::vec3(0,0,1)) );
 
 	// get window dimensions to calculate aspect ratio
 	int width = 0, height = 0;
@@ -38,12 +38,15 @@ bool Physics2D::onCreate(int a_argc, char* a_argv[])
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 
-	m_scene = new Scene();
-	m_scene->AddActor(new Actor(new Geometry::Plane(glm::vec3(0, 0, 1), glm::vec3(0), glm::vec3(0, 1, 0), 40), glm::vec4(0, 0, 0, 1)));
-	LaunchProjectile(glm::quarter_pi<float>(), 20, glm::vec4(1, 0, 0, 1));
+	m_scene = new Scene(glm::vec3(0.0f, 0.0f, -9.81f));
+	m_scene->AddActor(new Actor(new Geometry::Plane(20), glm::vec4(0, 0, 0, 1)));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(0, 0, 3)), glm::vec4(1, 0, 0, 1), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(0, 0, 6)), glm::vec4(0, 1, 0, 1), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(0, 0, 9)), glm::vec4(0, 0, 1, 1), 1.0f));
+	/*LaunchProjectile(glm::quarter_pi<float>(), 20, glm::vec4(1, 0, 0, 1));
 	LaunchProjectile(glm::pi<float>() / 3, 20, glm::vec4(0, 1, 0, 1));
 	LaunchProjectile(glm::half_pi<float>(), 20, glm::vec4(0, 0, 1, 1));
-	LaunchProjectile(0, 20, glm::vec4(1, 1, 0, 1));
+	LaunchProjectile(0, 20, glm::vec4(1, 1, 0, 1));/**/
 	
 	return true;
 }
@@ -81,7 +84,7 @@ void Physics2D::onUpdate(float a_deltaTime)
 	// add an identity matrix gizmo
 	Gizmos::addTransform( glm::mat4(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1) );
 
-	DrawGuide(glm::quarter_pi<float>(), 20, glm::vec4(1, 0, 0, 1));
+	/*DrawGuide(glm::quarter_pi<float>(), 20, glm::vec4(1, 0, 0, 1));
 	DrawGuide(glm::pi<float>() / 3, 20, glm::vec4(0, 1, 0, 1));
 	DrawGuide(glm::half_pi<float>(), 20, glm::vec4(0, 0, 1, 1));
 	DrawGuide(0, 20, glm::vec4(1, 1, 0, 1));
@@ -91,11 +94,11 @@ void Physics2D::onUpdate(float a_deltaTime)
 		Gizmos::addSphere(point.position, 0.25f, 2, 4, point.color);
 	}
 
-	m_scene->Update();
 	for (auto actor : m_scene->GetActors())
 	{
 		m_points.push_back(DataPoint(actor->GetPosition(), actor->GetColor()));
-	}
+	}/**/
+	m_scene->Update();
 	m_scene->Render();
 
 	// add a 20x20 grid on the XZ-plane

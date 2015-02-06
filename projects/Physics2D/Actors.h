@@ -32,13 +32,13 @@ public:
 	{
 		if (m_dynamic && nullptr != m_geometry)
 		{
-			m_geometry->position += m_velocity * a_deltaTime;
+			Move(m_velocity * a_deltaTime);
 			glm::vec3 force = m_force + a_force;
 			if (glm::vec3(0) != force && m_mass != 0.0f)
 			{
 				glm::vec3 deltaV = (force / m_mass) * a_deltaTime;
 				m_velocity += deltaV;
-				m_geometry->position += 0.5f * deltaV * a_deltaTime;
+				Move(0.5f * deltaV * a_deltaTime);
 			}
 		}
 	}
@@ -48,8 +48,51 @@ public:
 			m_geometry->Render(m_color);
 	}
 
-	const glm::vec4& GetColor() { return m_color; }
-	glm::vec3 GetPosition() { return (nullptr == m_geometry ? glm::vec3(0) : m_geometry->position); }
+	const glm::vec4& GetColor() const { return m_color; }
+	glm::vec3 GetPosition() const { return (nullptr == m_geometry ? glm::vec3(0) : m_geometry->position); }
+	Geometry* const GetGeometry() const { return m_geometry; }
+	const glm::vec3& GetVelocity() const { return m_velocity; }
+	bool IsDynamic() const { return m_dynamic; }
+
+	void SetVelocity(const glm::vec3& a_velocity = glm::vec3(0))
+	{
+		m_velocity = a_velocity;
+	}
+	void SetPosition(const glm::vec3& a_position = glm::vec3(0))
+	{
+		if (nullptr != m_geometry)
+			m_geometry->position = a_position;
+	}
+	void Move(const glm::vec3& a_displacement = glm::vec3(0))
+	{
+		if (nullptr != m_geometry)
+			m_geometry->position += a_displacement;
+	}
+
+	static void ResolveCollision(Actor* a_actor1, Actor* a_actor2)
+	{
+		Geometry::Collision collision;
+		if (nullptr != a_actor1 && nullptr != a_actor2 && a_actor1 != a_actor2 &&
+			(a_actor1->IsDynamic() || a_actor2->IsDynamic()) &&
+			Geometry::DetectCollision(a_actor1->GetGeometry(), a_actor2->GetGeometry(), &collision))
+		{
+			if (a_actor1->IsDynamic() && a_actor2->IsDynamic())
+			{
+				a_actor1->Move(-collision.normal * collision.interpenetration * 0.5f);
+				a_actor2->Move(collision.normal * collision.interpenetration * 0.5f);
+			}
+			else if (a_actor1->IsDynamic())
+			{
+				a_actor1->Move(-collision.normal * collision.interpenetration);
+			}
+			else if (a_actor2->IsDynamic())
+			{
+				a_actor2->Move(collision.normal * collision.interpenetration);
+			}
+			a_actor1->SetVelocity();
+			a_actor2->SetVelocity();
+		}
+	}
 
 protected:
 
