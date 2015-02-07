@@ -24,7 +24,7 @@ bool Physics2D::onCreate(int a_argc, char* a_argv[])
 	Gizmos::create();
 
 	// create a world-space matrix for a camera
-	m_cameraMatrix = glm::inverse( glm::lookAt(glm::vec3(10,10,10),glm::vec3(0,0,0), glm::vec3(0,0,1)) );
+	m_cameraMatrix = glm::inverse( glm::lookAt(glm::vec3(10,10,10),glm::vec3(0,0,0), glm::vec3(0,1,0)) );
 
 	// get window dimensions to calculate aspect ratio
 	int width = 0, height = 0;
@@ -38,11 +38,22 @@ bool Physics2D::onCreate(int a_argc, char* a_argv[])
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 
-	m_scene = new Scene(glm::vec3(0.0f, 0.0f, -9.81f));
-	m_scene->AddActor(new Actor(new Geometry::Plane(20), glm::vec4(0, 0, 0, 1)));
-	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(0, 0, 3)), glm::vec4(1, 0, 0, 1), 1.0f));
-	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(0, 0, 6)), glm::vec4(0, 1, 0, 1), 1.0f));
-	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(0, 0, 9)), glm::vec4(0, 0, 1, 1), 1.0f));
+	m_scene = new Scene();
+
+	// set up pool table
+	m_scene->AddActor(new Actor(new Geometry::Plane(40, 1.0f, glm::vec3(0), glm::vec3(0, 1, 0), glm::vec3(0, 0, -1)), glm::vec4(0, 1, 0, 1)));
+	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(1, 1, 9), glm::vec3(10, 1, 10)), glm::vec4(0, 1, 0, 1)));
+	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(1, 1, 9), glm::vec3(10, 1, -10)), glm::vec4(0, 1, 0, 1)));
+	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(1, 1, 9), glm::vec3(-10, 1, 10)), glm::vec4(0, 1, 0, 1)));
+	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(1, 1, 9), glm::vec3(-10, 1, -10)), glm::vec4(0, 1, 0, 1)));
+	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(9, 1, 1), glm::vec3(0, 1, 20)), glm::vec4(0, 1, 0, 1)));
+	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(9, 1, 1), glm::vec3(0, 1, -20)), glm::vec4(0, 1, 0, 1)));
+
+	// add balls
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(0, 1, -10)), glm::vec4(1, 1, 1, 1), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(0, 1, 10)), glm::vec4(1, 0, 0, 1), 1.0f));
+
+
 	/*LaunchProjectile(glm::quarter_pi<float>(), 20, glm::vec4(1, 0, 0, 1));
 	LaunchProjectile(glm::pi<float>() / 3, 20, glm::vec4(0, 1, 0, 1));
 	LaunchProjectile(glm::half_pi<float>(), 20, glm::vec4(0, 0, 1, 1));

@@ -88,10 +88,12 @@ public:
 
 	static void		addGrid(const glm::vec3& a_center = glm::vec3(0, 0, 0), int a_increments = 20, float a_size = 1.0f,
 							const glm::vec4& a_colour = glm::vec4(0, 0, 0, 1), const glm::vec4& a_axisColor = glm::vec4(1, 1, 1, 1),
-							const glm::mat4* a_transform = nullptr);
-	static void		addGrid(const glm::vec3& a_center, int a_increments, float a_size,
-							const glm::vec4& a_colour, const glm::mat4* a_transform = nullptr)
-					{ addGrid(a_center, a_increments, a_size, a_colour, a_colour, a_transform); }
+							const glm::vec4& a_fillColor = glm::vec4(0, 0, 0, 0), const glm::mat4* a_transform = nullptr);
+	static void		addGrid(const glm::vec3& a_center, int a_increments, float a_size, const glm::vec4& a_colour,
+							const glm::vec4& a_fillColor, const glm::mat4* a_transform)
+					{ addGrid(a_center, a_increments, a_size, a_colour, a_colour, a_fillColor, a_transform); }
+	static void		addGrid(const glm::vec3& a_center, int a_increments, float a_size, const glm::vec4& a_colour, const glm::mat4* a_transform)
+					{ addGrid(a_center, a_increments, a_size, a_colour, a_colour, glm::vec4(0, 0, 0, 0), a_transform); }
 	
 private:
 
