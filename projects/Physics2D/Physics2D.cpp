@@ -24,7 +24,7 @@ bool Physics2D::onCreate(int a_argc, char* a_argv[])
 	Gizmos::create();
 
 	// create a world-space matrix for a camera
-	m_cameraMatrix = glm::inverse( glm::lookAt(glm::vec3(10,10,10),glm::vec3(0,0,0), glm::vec3(0,1,0)) );
+	m_cameraMatrix = glm::inverse( glm::lookAt(glm::vec3(20,20,20),glm::vec3(0,0,0), glm::vec3(0,1,0)) );
 
 	// get window dimensions to calculate aspect ratio
 	int width = 0, height = 0;
@@ -41,19 +41,42 @@ bool Physics2D::onCreate(int a_argc, char* a_argv[])
 	m_scene = new Scene();
 
 	// set up pool table
-	m_scene->AddActor(new Actor(new Geometry::Plane(40, 1.0f, glm::vec3(0), glm::vec3(0, 1, 0), glm::vec3(0, 0, -1)), glm::vec4(0, 1, 0, 1)));
-	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(1, 1, 9), glm::vec3(10, 1, 10)), glm::vec4(0, 1, 0, 1)));
-	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(1, 1, 9), glm::vec3(10, 1, -10)), glm::vec4(0, 1, 0, 1)));
-	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(1, 1, 9), glm::vec3(-10, 1, 10)), glm::vec4(0, 1, 0, 1)));
-	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(1, 1, 9), glm::vec3(-10, 1, -10)), glm::vec4(0, 1, 0, 1)));
-	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(9, 1, 1), glm::vec3(0, 1, 20)), glm::vec4(0, 1, 0, 1)));
-	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(9, 1, 1), glm::vec3(0, 1, -20)), glm::vec4(0, 1, 0, 1)));
+	m_scene->AddActor(new Actor(new Geometry::Plane(40, 1.0f, glm::vec3(0), glm::vec3(0, 1, 0), glm::vec3(0, 0, -1)),
+								glm::vec4(0, 1, 0, 0), false, 1.0f, glm::vec3(0), 0.75f));
+	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(11, 1, 20.5), glm::vec3(0, -1, 0)),
+								glm::vec4(0, 0.5f, 0, 1), false, 1.0f, glm::vec3(0), 0.75f));
+	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(1, 1, 8), glm::vec3(11, 1, 9.5)),
+								glm::vec4(0, 0.5f, 0, 1), false, 1.0f, glm::vec3(0), 0.75f));
+	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(1, 1, 8), glm::vec3(11, 1, -9.5)),
+								glm::vec4(0, 0.5f, 0, 1), false, 1.0f, glm::vec3(0), 0.75f));
+	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(1, 1, 8), glm::vec3(-11, 1, 9.5)),
+								glm::vec4(0, 0.5f, 0, 1), false, 1.0f, glm::vec3(0), 0.75f));
+	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(1, 1, 8), glm::vec3(-11, 1, -9.5)),
+								glm::vec4(0, 0.5f, 0, 1), false, 1.0f, glm::vec3(0), 0.75f));
+	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(8, 1, 1), glm::vec3(0, 1, 20.5)),
+								glm::vec4(0, 0.5f, 0, 1), false, 1.0f, glm::vec3(0), 0.75f));
+	m_scene->AddActor(new Actor(new Geometry::Box(glm::vec3(8, 1, 1), glm::vec3(0, 1, -20.5)),
+								glm::vec4(0, 0.5f, 0, 1), false, 1.0f, glm::vec3(0), 0.75f));
 
 	// add balls
-	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(0, 1, -10)), glm::vec4(1, 1, 1, 1), 1.0f));
-	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(0, 1, 10)), glm::vec4(1, 0, 0, 1), 1.0f));
-
-
+	m_cueBall = new Actor(new Geometry::Sphere(1, glm::vec3(0, 1, 10)), glm::vec4(1, 1, 1, 1), 1.0f);
+	m_scene->AddActor(m_cueBall);
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(0, 1, -10)), glm::vec4(1, 1, 0, 1), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(1, 1, -11.75)), glm::vec4(1, 0, 0, 0.5), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(-1, 1, -11.75)), glm::vec4(0, 0, 1, 0.5), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(2, 1, -13.5)), glm::vec4(1, 1, 0, 0.5), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(0, 1, -13.5)), glm::vec4(0, 0, 0, 1), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(-2, 1, -13.5)), glm::vec4(0, 1, 0, 1), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(3, 1, -15.25)), glm::vec4(1, 0.5, 0, 1), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(1, 1, -15.25)), glm::vec4(0.5, 0, 1, 0.5), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(-1, 1, -15.25)), glm::vec4(1, 0, 0.5, 1), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(-3, 1, -15.25)), glm::vec4(1, 0.5, 0, 0.5), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(4, 1, -17)), glm::vec4(1, 0, 0.5, 0.5), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(2, 1, -17)), glm::vec4(0, 0, 1, 1), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(0, 1, -17)), glm::vec4(0, 1, 0, 0.5), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(-2, 1, -17)), glm::vec4(1, 0, 0, 1), 1.0f));
+	m_scene->AddActor(new Actor(new Geometry::Sphere(1, glm::vec3(-4, 1, -17)), glm::vec4(0.5, 0, 1, 1), 1.0f));
+	m_aiming = m_cued = false;
 	/*LaunchProjectile(glm::quarter_pi<float>(), 20, glm::vec4(1, 0, 0, 1));
 	LaunchProjectile(glm::pi<float>() / 3, 20, glm::vec4(0, 1, 0, 1));
 	LaunchProjectile(glm::half_pi<float>(), 20, glm::vec4(0, 0, 1, 1));
@@ -111,6 +134,38 @@ void Physics2D::onUpdate(float a_deltaTime)
 	}/**/
 	m_scene->Update();
 	m_scene->Render();
+	if (!m_cued)
+	{
+		GLFWwindow* window = glfwGetCurrentContext();
+		// get window dimensions to calculate aspect ratio
+		int width = 0, height = 0;
+		glfwGetWindowSize(m_window, &width, &height);
+		double mouseX = 0, mouseY = 0;
+		glfwGetCursorPos(window, &mouseX, &mouseY);
+		glm::vec3 screenCoord(mouseX, (float)height - mouseY, 0);
+		glm::vec4 viewPort = glm::vec4(0.f, 0.f, width, height);
+		glm::mat4 viewMatrix = glm::inverse(m_cameraMatrix);
+		glm::vec3 worldPos = glm::unProject(screenCoord, viewMatrix, m_projectionMatrix, viewPort);
+		glm::vec3 rayOrigin = m_cameraMatrix[3].xyz();
+		glm::vec3 rayDirection = glm::normalize(worldPos - m_cameraMatrix[3].xyz());
+		glm::vec3 up(0, 1, 0);
+		float d = glm::dot(rayDirection, up);
+		if (0 != d)
+		{
+			glm::vec3 cue = rayOrigin + rayDirection * glm::dot(up - rayOrigin, up) / d;
+			if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS)
+			{
+				m_aiming = true;
+				Gizmos::addLine(cue, m_cueBall->GetPosition(), glm::vec4(1));
+			}
+			else if (m_aiming)
+			{
+				m_aiming = false;
+				m_cued = true;
+				m_cueBall->SetVelocity(m_cueBall->GetPosition() - cue);
+			}
+		}
+	}
 
 	// add a 20x20 grid on the XZ-plane
 	/*for ( int i = 0 ; i < 21 ; ++i )

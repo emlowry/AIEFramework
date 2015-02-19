@@ -1,4 +1,4 @@
-#include "Actors.h"
+#include "Actor.h"
 #include "Utilities.h"
 #include <vector>
 
@@ -38,6 +38,9 @@ public:
 				for (unsigned int j = i + 1; j < m_actors.size(); ++j)
 					Actor::ResolveCollision(m_actors[i], m_actors[j]);
 			}
+
+			for (auto actor : m_actors)
+				actor->SpeedCheck();
 		}
 	}
 

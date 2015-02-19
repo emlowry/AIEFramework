@@ -1,15 +1,32 @@
 #include "Geometry.h"
+#include <functional>
 
 const glm::mat4 Geometry::NO_ROTATION = glm::mat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+const glm::quat Geometry::UNROTATED_ORIENTATION = glm::quat(1, 0, 0, 0);
 
-void Geometry::YawPitchRoll(glm::mat4& a_rotation,
+void Geometry::AxisAngle(glm::quat& a_orientation,
+						 float a_angle, const glm::vec3& a_axis)
+{
+	if (glm::vec3(0) == a_axis)
+	{
+		a_orientation = UNROTATED_ORIENTATION;
+		return;
+	}
+	float angle = a_angle;
+	while (angle > glm::pi<float>())
+		angle -= glm::pi<float>() * 2;
+	while (angle <= -glm::pi<float>())
+		angle += glm::pi<float>() * 2;
+	a_orientation = glm::quat(glm::cos(angle / 2), glm::normalize(a_axis) * glm::sin(angle / 2));
+}
+void Geometry::YawPitchRoll(glm::quat& a_orientation,
 							float a_yaw, float a_pitch, float a_roll,
 							const glm::vec3& a_yawAxis,
 							const glm::vec3& a_rollAxis)
 {
 	if (0 == a_yaw && 0 == a_pitch && 0 == a_roll)
 	{
-		a_rotation = NO_ROTATION;
+		a_orientation = UNROTATED_ORIENTATION;
 		return;
 	}
 	glm::vec3 yawAxis = a_yawAxis;
@@ -56,14 +73,14 @@ void Geometry::YawPitchRoll(glm::mat4& a_rotation,
 	yawAxis = glm::normalize(yawAxis);
 	pitchAxis = glm::normalize(pitchAxis);
 	rollAxis = glm::normalize(rollAxis);
-	a_rotation = glm::rotate(a_yaw, yawAxis) * glm::rotate(a_pitch, pitchAxis) * glm::rotate(a_roll, rollAxis);
+	a_orientation = AxisAngle(a_yaw, yawAxis) * AxisAngle(a_pitch, pitchAxis) * AxisAngle(a_roll, rollAxis);
 }
 
-typedef bool(*CollisionDetector)(Geometry* a_shape1, Geometry* a_shape2,
+typedef bool(*CollisionDetector)(const Geometry& a_shape1, const Geometry& a_shape2,
 								 Geometry::Collision* a_collision);
 
 static bool Flip(CollisionDetector a_detector,
-				 Geometry* a_shape1, Geometry* a_shape2,
+				 const Geometry& a_shape1, const Geometry& a_shape2,
 				 Geometry::Collision* a_collision)
 {
 	bool result = a_detector(a_shape2, a_shape1, a_collision);
@@ -77,34 +94,34 @@ static bool Flip(CollisionDetector a_detector,
 	return result;
 }
 
-static bool PlanePlane(Geometry* a_shape1, Geometry* a_shape2,
+static bool PlanePlane(const Geometry& a_shape1, const Geometry& a_shape2,
 					   Geometry::Collision* a_collision);
-static bool PlaneSphere(Geometry* a_shape1, Geometry* a_shape2,
+static bool PlaneSphere(const Geometry& a_shape1, const Geometry& a_shape2,
 						Geometry::Collision* a_collision);
-static bool PlaneBox(Geometry* a_shape1, Geometry* a_shape2,
+static bool PlaneBox(const Geometry& a_shape1, const Geometry& a_shape2,
 					 Geometry::Collision* a_collision);
 
-static bool SpherePlane(Geometry* a_shape1, Geometry* a_shape2,
+static bool SpherePlane(const Geometry& a_shape1, const Geometry& a_shape2,
 						Geometry::Collision* a_collision)
 {
 	return Flip(PlaneSphere, a_shape1, a_shape2, a_collision);
 }
-static bool SphereSphere(Geometry* a_shape1, Geometry* a_shape2,
+static bool SphereSphere(const Geometry& a_shape1, const Geometry& a_shape2,
 						 Geometry::Collision* a_collision);
-static bool SphereBox(Geometry* a_shape1, Geometry* a_shape2,
+static bool SphereBox(const Geometry& a_shape1, const Geometry& a_shape2,
 					  Geometry::Collision* a_collision);
 
-static bool BoxPlane(Geometry* a_shape1, Geometry* a_shape2,
+static bool BoxPlane(const Geometry& a_shape1, const Geometry& a_shape2,
 					 Geometry::Collision* a_collision)
 {
 	return Flip(PlaneBox, a_shape1, a_shape2, a_collision);
 }
-static bool BoxSphere(Geometry* a_shape1, Geometry* a_shape2,
+static bool BoxSphere(const Geometry& a_shape1, const Geometry& a_shape2,
 					  Geometry::Collision* a_collision)
 {
 	return Flip(SphereBox, a_shape1, a_shape2, a_collision);
 }
-static bool BoxBox(Geometry* a_shape1, Geometry* a_shape2,
+static bool BoxBox(const Geometry& a_shape1, const Geometry& a_shape2,
 				   Geometry::Collision* a_collision);
 
 static CollisionDetector g_collisionFunctions[Geometry::TYPE_COUNT][Geometry::TYPE_COUNT] =
@@ -115,27 +132,28 @@ static CollisionDetector g_collisionFunctions[Geometry::TYPE_COUNT][Geometry::TY
 	{ nullptr, BoxPlane, BoxSphere, BoxBox }
 };
 
-bool Geometry::DetectCollision(Geometry* a_shape1, Geometry* a_shape2,
+bool Geometry::DetectCollision(const Geometry& a_shape1, const Geometry& a_shape2,
 							   Geometry::Collision* a_collision)
 {
 	// validity check
-	if (nullptr == a_shape1 || nullptr == a_shape2 || a_shape1 == a_shape2 ||
-		Geometry::TYPE_COUNT <= a_shape1->GetType() || Geometry::TYPE_COUNT <= a_shape2->GetType())
+	if (&a_shape1 == &a_shape2 ||
+		Geometry::TYPE_COUNT <= a_shape1.GetType() ||
+		Geometry::TYPE_COUNT <= a_shape2.GetType())
 		return false;
 
 	// call appropriate function
-	CollisionDetector f = g_collisionFunctions[a_shape1->GetType()][a_shape2->GetType()];
+	CollisionDetector f = g_collisionFunctions[a_shape1.GetType()][a_shape2.GetType()];
 	if (nullptr == f)
 		return false;
 	return f(a_shape1, a_shape2, a_collision);
 }
 
-bool PlanePlane(Geometry* a_shape1, Geometry* a_shape2,
+bool PlanePlane(const Geometry& a_shape1, const Geometry& a_shape2,
 				Geometry::Collision* a_collision)
 {
 	// type check
-	Geometry::Plane* plane1 = dynamic_cast<Geometry::Plane*>(a_shape1);
-	Geometry::Plane* plane2 = dynamic_cast<Geometry::Plane*>(a_shape2);
+	const Geometry::Plane* plane1 = dynamic_cast<const Geometry::Plane*>(&a_shape1);
+	const Geometry::Plane* plane2 = dynamic_cast<const Geometry::Plane*>(&a_shape2);
 	if (nullptr == plane1 || nullptr == plane2)
 		return false;
 
@@ -150,45 +168,70 @@ bool PlanePlane(Geometry* a_shape1, Geometry* a_shape2,
 	// otherwise, planes always collide
 	if (nullptr != a_collision)
 	{
-		a_collision->shape1 = a_shape1;
-		a_collision->shape2 = a_shape2;
+		a_collision->shape1(a_shape1);
+		a_collision->shape2(a_shape2);
 		a_collision->interpenetration = 0;
+		glm::vec3 midpoint = (plane1->position + plane2->position) * 0.5f;
 		if (glm::vec3(0) == cross)
 		{
 			a_collision->normal = normal1;
-			a_collision->point = (plane1->position + plane2->position) * 0.5f;
+			a_collision->point = midpoint;
 		}
 		else
 		{
 			a_collision->normal = glm::normalize(normal1 + (0 > glm::dot(normal1, normal2) ? -normal2 : normal2));
-			cross = glm::normalize(cross);
 			glm::vec3 p;
+			float d1 = glm::dot(plane1->position, normal1);
+			float d2 = glm::dot(plane2->position, normal2);
 			if (0 != cross.z)
 			{
-				//TODO
+				p.x = (d1*normal2.y - d2*normal1.y) / cross.z;
+				p.y = (d2*normal1.x - d1*normal2.x) / cross.z;
+				p.z = 0;
 			}
+			else if (0 != cross.y)
+			{
+				p.z = (d1*normal2.x - d2*normal1.x) / cross.y;
+				p.x = (d2*normal1.z - d1*normal2.z) / cross.y;
+				p.y = 0;
+			}
+			else // 0 != cross.x
+			{
+				p.y = (d1*normal2.z - d2*normal1.z) / cross.x;
+				p.z = (d2*normal1.y - d1*normal2.y) / cross.x;
+				p.x = 0;
+			}
+			cross = glm::normalize(cross);
+			a_collision->point = p + cross*glm::dot(cross, midpoint - p);
 		}
 	}
 	return true;
 }
-bool PlaneSphere(Geometry* a_shape1, Geometry* a_shape2,
+bool PlaneSphere(const Geometry& a_shape1, const Geometry& a_shape2,
 				 Geometry::Collision* a_collision)
 {
 	// type check
-	Geometry::Plane* plane = dynamic_cast<Geometry::Plane*>(a_shape1);
-	Geometry::Sphere* sphere = dynamic_cast<Geometry::Sphere*>(a_shape2);
+	const Geometry::Plane* plane = dynamic_cast<const Geometry::Plane*>(&a_shape1);
+	const Geometry::Sphere* sphere = dynamic_cast<const Geometry::Sphere*>(&a_shape2);
 	if (nullptr == plane || nullptr == sphere)
 		return false;
 
 	// sphere and plane collide if distance between <= radius
-	float distance = fabs(glm::dot(plane->normal(), sphere->position - plane->position));
+	glm::vec3 normal = plane->normal();
+	glm::vec3 displacement = sphere->position - plane->position;
+	float distance = glm::dot(normal, displacement);
+	if (0 > distance)
+	{
+		normal *= -1.0f;
+		distance *= -1;
+	}
 	if (distance <= sphere->radius)
 	{
 		if (nullptr != a_collision)
 		{
-			a_collision->shape1 = a_shape1;
-			a_collision->shape2 = a_shape2;
-			a_collision->normal = plane->normal();
+			a_collision->shape1(a_shape1);
+			a_collision->shape2(a_shape2);
+			a_collision->normal = normal;
 			a_collision->interpenetration = sphere->radius - distance;
 			a_collision->point = sphere->position - a_collision->normal * distance;
 		}
@@ -196,52 +239,86 @@ bool PlaneSphere(Geometry* a_shape1, Geometry* a_shape2,
 	}
 	return false;
 }
-bool PlaneBox(Geometry* a_shape1, Geometry* a_shape2,
+void GetMinAndMax(const std::vector<glm::vec3>& a_points,
+				  std::function<float(const glm::vec3&)> a_distanceFunction,
+				  float& a_min, float& a_max,
+				  glm::vec3& a_minPoint, glm::vec3& a_maxPoint)
+{
+	std::vector<glm::vec3> maxPoints, minPoints;
+	bool start = true;
+	for (auto point : a_points)
+	{
+		float distance = a_distanceFunction(point);
+		if (start || distance > a_max)
+		{
+			a_max = distance;
+			if (distance != a_max)
+				maxPoints.clear();
+			maxPoints.push_back(point);
+		}
+		if (start || distance < a_min)
+		{
+			a_min = distance;
+			if (distance != a_min)
+				minPoints.clear();
+			minPoints.push_back(point);
+		}
+		start = false;
+	}
+	a_minPoint = glm::vec3(0);
+	for (auto point : minPoints)
+		a_minPoint += point;
+	a_minPoint /= (float)(minPoints.size());
+	a_maxPoint = glm::vec3(0);
+	for (auto point : maxPoints)
+		a_maxPoint += point;
+	a_maxPoint /= (float)(maxPoints.size());
+}
+
+bool PlaneBox(const Geometry& a_shape1, const Geometry& a_shape2,
 			  Geometry::Collision* a_collision)
 {
 	// type check
-	Geometry::Plane* plane = dynamic_cast<Geometry::Plane*>(a_shape1);
-	Geometry::Box* box = dynamic_cast<Geometry::Box*>(a_shape2);
+	const Geometry::Plane* plane = dynamic_cast<const Geometry::Plane*>(&a_shape1);
+	const Geometry::Box* box = dynamic_cast<const Geometry::Box*>(&a_shape2);
 	if (nullptr == plane || nullptr == box)
 		return false;
 
 	// get distances from plane to vertices, with positive distances in the normal
 	// direction and negative distances in the opposite direction
-	float max, min;
-	auto vertices = box->vertices();
 	glm::vec3 normal = plane->normal();
-	bool start = true;
-	for (auto vertex : vertices)
-	{
-		float distance = glm::dot(normal, vertex - plane->position);
-		if (start || distance > max)
-			max = distance;
-		if (start || distance < min)
-			min = distance;
-		start = false;
-	}
+	float max, min;
+	glm::vec3 minPoint, maxPoint;
+	GetMinAndMax(box->vertices(),
+				 [&](const glm::vec3& a_point)
+				 {
+					return glm::dot(normal, a_point - plane->position);
+				 },
+				 min, max, minPoint, maxPoint);
 
 	// if there are points on both sides, there's an intersection
 	if (0 >= max * min)
 	{
 		if (nullptr != a_collision)
 		{
-			a_collision->shape1 = a_shape1;
-			a_collision->shape2 = a_shape2;
+			a_collision->shape1(a_shape1);
+			a_collision->shape2(a_shape2);
 			a_collision->normal = normal * (fabs(min) > max ? -1.0f : 1.0f);
 			a_collision->interpenetration = fmin(fabs(min), max);
+			glm::vec3 p = (fabs(min) > max ? maxPoint : minPoint);
+			a_collision->point = p - normal * glm::dot(normal, p - plane->position);
 		}
 		return true;
 	}
 	return false;
 }
 
-bool SphereSphere(Geometry* a_shape1, Geometry* a_shape2,
+bool SphereSphere(const Geometry& a_shape1, const Geometry& a_shape2,
 				  Geometry::Collision* a_collision)
 {
 	// type check
-	Geometry::Sphere* sphere1 = dynamic_cast<Geometry::Sphere*>(a_shape1);
-	Geometry::Sphere* sphere2 = dynamic_cast<Geometry::Sphere*>(a_shape2);
+	const Geometry::Sphere* sphere1 = dynamic_cast<const Geometry::Sphere*>(&a_shape1);
+	const Geometry::Sphere* sphere2 = dynamic_cast<const Geometry::Sphere*>(&a_shape2);
 	if (nullptr == sphere1 || nullptr == sphere2)
 		return false;
 
@@ -252,21 +329,23 @@ bool SphereSphere(Geometry* a_shape1, Geometry* a_shape2,
 	{
 		if (nullptr != a_collision)
 		{
-			a_collision->shape1 = a_shape1;
-			a_collision->shape2 = a_shape2;
+			a_collision->shape1(a_shape1);
+			a_collision->shape2(a_shape2);
 			a_collision->normal = glm::normalize(sphere2->position - sphere1->position);
 			a_collision->interpenetration = collisionDistance - sqrt(squareDistance);
+			float d = sphere1->radius - a_collision->interpenetration / 2;
+			a_collision->point = sphere1->position + a_collision->normal * d;
 		}
 		return true;
 	}
 	return false;
 }
-bool SphereBox(Geometry* a_shape1, Geometry* a_shape2,
+bool SphereBox(const Geometry& a_shape1, const Geometry& a_shape2,
 			   Geometry::Collision* a_collision)
 {
 	// type check
-	Geometry::Sphere* sphere = dynamic_cast<Geometry::Sphere*>(a_shape1);
-	Geometry::Box* box = dynamic_cast<Geometry::Box*>(a_shape2);
+	const Geometry::Sphere* sphere = dynamic_cast<const Geometry::Sphere*>(&a_shape1);
+	const Geometry::Box* box = dynamic_cast<const Geometry::Box*>(&a_shape2);
 	if (nullptr == sphere || nullptr == box)
 		return false;
 
@@ -280,12 +359,14 @@ bool SphereBox(Geometry* a_shape1, Geometry* a_shape2,
 	{
 		if (nullptr != a_collision)
 		{
-			a_collision->shape1 = a_shape1;
-			a_collision->shape2 = a_shape2;
+			a_collision->shape1(a_shape1);
+			a_collision->shape2(a_shape2);
 			a_collision->normal =
 				glm::normalize(closestPoint - sphere->position) * (inside ? -1.0f : 1.0f);
 			a_collision->interpenetration = sphere->radius +
 				(glm::distance(closestPoint, sphere->position) * (inside ? 1 : -1));
+			float d = sphere->radius - a_collision->interpenetration / 2;
+			a_collision->point = sphere->position + a_collision->normal * d;
 		}
 		return true;
 	}
@@ -295,38 +376,28 @@ bool SphereBox(Geometry* a_shape1, Geometry* a_shape2,
 // negative value = no overlap
 static float ProjectionOverlap(const glm::vec3& a_axis,
 							   const std::vector<glm::vec3>& a_group1,
-							   const std::vector<glm::vec3>& a_group2)
+							   const std::vector<glm::vec3>& a_group2,
+							   glm::vec3& a_midPoint)
 {
 	float min1, min2, max1, max2;
-	bool start = true;
-	for (auto point : a_group1)
+	glm::vec3 minPoint1, minPoint2, maxPoint1, maxPoint2;
+	auto project = [&](const glm::vec3& a_point)
 	{
-		float d = glm::dot(a_axis, point);
-		if (start || d < min1)
-			min1 = d;
-		if (start || d > max1)
-			max1 = d;
-		start = false;
-	}
-	start = true;
-	for (auto point : a_group2)
-	{
-		float d = glm::dot(a_axis, point);
-		if (start || d < min2)
-			min2 = d;
-		if (start || d > max1)
-			max2 = d;
-		start = false;
-	}
-	return (fabs(max1 - min2) < fabs(max2 - min1) ? max1 - min2 : max2 - min1);
+		return glm::dot(a_axis, a_point);
+	};
+	GetMinAndMax(a_group1, project, min1, max1, minPoint1, maxPoint1);
+	GetMinAndMax(a_group2, project, min2, max2, minPoint2, maxPoint2);
+	bool group1First = fabs(max1 - min2) < fabs(max2 - min1);
+	a_midPoint = (group1First ? maxPoint1 + minPoint2 : maxPoint2 + minPoint1) * 0.5f;
+	return (group1First ? max1 - min2 : max2 - min1);
 }
 
-bool BoxBox(Geometry* a_shape1, Geometry* a_shape2,
+bool BoxBox(const Geometry& a_shape1, const Geometry& a_shape2,
 			Geometry::Collision* a_collision)
 {
 	// type check
-	Geometry::Box* box1 = dynamic_cast<Geometry::Box*>(a_shape1);
-	Geometry::Box* box2 = dynamic_cast<Geometry::Box*>(a_shape2);
+	const Geometry::Box* box1 = dynamic_cast<const Geometry::Box*>(&a_shape1);
+	const Geometry::Box* box2 = dynamic_cast<const Geometry::Box*>(&a_shape2);
 	if (nullptr == box1 || nullptr == box2)
 		return false;
 
@@ -337,26 +408,29 @@ bool BoxBox(Geometry* a_shape1, Geometry* a_shape2,
 		return false;
 
 	// get all the axes to test for separation
+	glm::vec3 centerToCenterAxis = glm::normalize(box2->position - box1->position);
 	std::vector<glm::vec3> axes;
-	axes.push_back(glm::normalize(box2->position - box1->position));
+	axes.push_back(centerToCenterAxis);
 	for (unsigned int i = 0; i < 3; ++i)
 	{
-		axes.push_back(box1->rotation[i].xyz());
-		axes.push_back(box2->rotation[i].xyz());
+		axes.push_back(box1->axis(i));
+		axes.push_back(box2->axis(i));
 		for (unsigned int j = 0; j < 3; ++j)
-			axes.push_back(glm::cross(box1->rotation[i].xyz(), box2->rotation[j].xyz()));
+			axes.push_back(glm::cross(box1->axis(i), box2->axis(j)));
 	}
 
 	// test for separation
 	auto vertices1 = box1->vertices();
 	auto vertices2 = box2->vertices();
 	float interpenetration = 0;
+	glm::vec3 midPoint;
 	glm::vec3 normal;
 	bool start = true;
 	for (auto axis : axes)
 	{
 		// test for projection overlap along each axis
-		float overlap = ProjectionOverlap(axis, vertices1, vertices2);
+		glm::vec3 p;
+		float overlap = ProjectionOverlap(axis, vertices1, vertices2, p);
 
 		// if there is no overlap, then there is no collision
 		if (0 > overlap)
@@ -366,7 +440,8 @@ bool BoxBox(Geometry* a_shape1, Geometry* a_shape2,
 		if (start || overlap < interpenetration)
 		{
 			interpenetration = overlap;
-			normal = axis;
+			normal = (0 > glm::dot(centerToCenterAxis, axis) ? -axis : axis);
+			midPoint = p;	// not even close to accurate, but I don't know how to get the right one
 		}
 		start = false;
 	}
@@ -378,21 +453,22 @@ bool BoxBox(Geometry* a_shape1, Geometry* a_shape2,
 	// if the projections of each box onto each possible axis always overlap, then the boxes intersect
 	if (nullptr != a_collision)
 	{
-		a_collision->shape1 = a_shape1;
-		a_collision->shape2 = a_shape2;
+		a_collision->shape1(a_shape1);
+		a_collision->shape2(a_shape2);
 		a_collision->normal = normal;
 		a_collision->interpenetration = interpenetration;
+		a_collision->point = midPoint;
 	}
 	return true;
 }
 
 glm::vec3 Geometry::ToWorld(const glm::vec3& a_localCoordinate, bool a_isDirection) const
 {
-	return (glm::translate(position) * rotation * glm::vec4(a_localCoordinate, a_isDirection ? 0 : 1)).xyz();
+	return (glm::translate(position) * m_rotationMatrix * glm::vec4(a_localCoordinate, a_isDirection ? 0 : 1)).xyz();
 }
 glm::vec3 Geometry::ToLocal(const glm::vec3& a_worldCoordinate, bool a_isDirection) const
 {
-	return (glm::inverse(rotation) * glm::translate(-position) * glm::vec4(a_worldCoordinate, a_isDirection ? 0 : 1)).xyz();
+	return (glm::inverse(m_rotationMatrix) * glm::translate(-position) * glm::vec4(a_worldCoordinate, a_isDirection ? 0 : 1)).xyz();
 }
 
 glm::vec3 Geometry::Box::AxisAlignedExtents() const
@@ -486,4 +562,18 @@ bool Geometry::Box::Contains(const glm::vec3& a_point) const
 	return (-extents.x <= local.x && local.x <= extents.x &&
 			-extents.y <= local.y && local.y <= extents.y &&
 			-extents.z <= local.z && local.z <= extents.z);
+}
+
+glm::mat3 Geometry::Box::interiaTensorDividedByMass() const
+{
+	return glm::mat3((extents.y*extents.y + extents.z*extents.z) / 3, 0, 0,
+					 0, (extents.x*extents.x + extents.z*extents.z) / 3, 0,
+					 0, 0, (extents.x*extents.x + extents.y*extents.y) / 3);
+}
+
+glm::mat3 Geometry::Sphere::interiaTensorDividedByMass() const
+{
+	return glm::mat3(radius * radius * 2 / 3, 0, 0,
+					 0, radius * radius * 2 / 3, 0,
+					 0, 0, radius * radius * 2 / 3);
 }

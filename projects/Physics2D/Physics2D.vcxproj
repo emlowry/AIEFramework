@@ -77,11 +77,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Actor.cpp" />
     <ClCompile Include="Geometry.cpp" />
     <ClCompile Include="Physics2D.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Actors.h" />
+    <ClInclude Include="Actor.h" />
     <ClInclude Include="Geometry.h" />
     <ClInclude Include="Physics2D.h" />
     <ClInclude Include="Scene.h" />

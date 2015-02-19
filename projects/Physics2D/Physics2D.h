@@ -36,6 +36,9 @@ protected:
 	glm::mat4	m_projectionMatrix;
 
 	Scene* m_scene;
+	Actor* m_cueBall;
+	bool m_aiming;
+	bool m_cued;
 
 	std::vector<DataPoint> m_points;
 };
