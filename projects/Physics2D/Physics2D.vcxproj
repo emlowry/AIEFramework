@@ -79,11 +79,15 @@
   <ItemGroup>
     <ClCompile Include="Actor.cpp" />
     <ClCompile Include="Geometry.cpp" />
+    <ClCompile Include="Geometry_DetectCollision.cpp" />
+    <ClCompile Include="Geometry_Shapes.cpp" />
     <ClCompile Include="Physics2D.cpp" />
+    <ClCompile Include="Scene.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Actor.h" />
     <ClInclude Include="Geometry.h" />
+    <ClInclude Include="Geometry_Shapes.h" />
     <ClInclude Include="Physics2D.h" />
     <ClInclude Include="Scene.h" />
   </ItemGroup>

@@ -1,63 +1,40 @@
+#pragma once
 #include "Actor.h"
 #include "Utilities.h"
-#include <vector>
+#include <set>
 
 class Scene
 {
 public:
 
 	Scene(const glm::vec3& a_gravity = glm::vec3(0.0f, -9.81f, 0.0f),
-		float a_timeStep = 0.01f)
+		  float a_timeStep = 0.01f,
+		  float a_minLinearSpeed = 0.001f,
+		  float a_minAngularSpeed = 0.001f)
 		: m_gravity(a_gravity), m_timeStep(a_timeStep),
-		m_lastUpdate(Utility::getTotalTime()) {}
+		  m_lastUpdate(Utility::getTotalTime()),
+		  m_minLinearSpeed2(a_minLinearSpeed * a_minLinearSpeed),
+		  m_minAngularSpeed2(a_minAngularSpeed * a_minAngularSpeed) {}
 	~Scene() { ClearActors(); }
 
-	void AddActor(Actor* a_actor) { m_actors.push_back(a_actor); }
-	void ClearActors()
-	{
-		while (!m_actors.empty())
-		{
-			Actor* actor = m_actors.back();
-			m_actors.pop_back();
-			if (nullptr != actor)
-				delete actor;
-		}
-	}
+	void AddActor(Actor* a_actor);
+	void ClearActors();
+	bool DestroyActor(Actor* a_actor);	// returns false if actor not in scene
+	const std::set<Actor*>& GetActors() const { return m_actors; }
+	bool HasActor(Actor* a_actor) const { return nullptr != a_actor && 0 != m_actors.count(a_actor); }
 
-	void Update()
-	{
-		float time = Utility::getTotalTime();
-		while (time - m_lastUpdate >= m_timeStep)
-		{
-			m_lastUpdate += m_timeStep;
-			for (auto actor : m_actors)
-				actor->Update(m_timeStep, m_gravity);
+	void Update();
+	void Render() const;
 
-			for (unsigned int i = 0; i < m_actors.size(); ++i)
-			{
-				for (unsigned int j = i + 1; j < m_actors.size(); ++j)
-					Actor::ResolveCollision(m_actors[i], m_actors[j]);
-			}
-
-			for (auto actor : m_actors)
-				actor->SpeedCheck();
-		}
-	}
-
-	void Render()
-	{
-		for (auto actor : m_actors)
-			actor->Render();
-	}
-
-	const std::vector<Actor*>& GetActors() { return m_actors; }
 
 protected:
 
 	glm::vec3 m_gravity;
 	float m_timeStep;
 	float m_lastUpdate;
+	float m_minLinearSpeed2;
+	float m_minAngularSpeed2;
 
-	std::vector<Actor*> m_actors;
+	std::set<Actor*> m_actors;
 
 };
