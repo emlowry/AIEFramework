@@ -153,9 +153,6 @@ void PhysXTutorials::onUpdate(float a_deltaTime)
 	// add an identity matrix gizmo
 	Gizmos::addTransform( glm::mat4(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1) );
 
-	// add a 20x20 grid on the XZ-plane
-	Gizmos::addGrid();
-
 	controlPlayer(a_deltaTime);
 
 	// fire bullet
@@ -404,9 +401,9 @@ void PhysXTutorials::addPlane(PxShape* pShape, PxActor* actor)
 	position.y = m.getPosition().y;
 	position.z = m.getPosition().z;
 	//unrotated Gizmo is xz-plane, but unrotated PhysX plane is yz-plane
-	M = M * glm::mat4(0, 1, 0, 0,
+	M = M * glm::mat4(0, 0, 1, 0,
+					  0, 1, 0, 0,
 					  1, 0, 0, 0,
-					  0, 0, 1, 0,
 					  0, 0, 0, 1);
 	//create our grid gizmo
 	Gizmos::addGrid(position, 100, 1.0f, glm::vec4(0, 1, 0, 1), &M);

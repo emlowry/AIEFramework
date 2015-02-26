@@ -67,49 +67,55 @@ void Actor::ResolveCollision(Actor* a_actor1, Actor* a_actor2)
 			collision.point += collision.normal * 0.5f;
 		}
 
+		float e = 1.0f + fmin(a_actor1->m_material.elasticity, a_actor2->m_material.elasticity);
+		glm::vec3 n = collision.normal;
+		glm::vec3 Vr = a_actor2->GetVelocity() - a_actor1->GetVelocity();
+		float invM = (a_actor1->IsDynamic() ? 1.0f / a_actor1->GetMass() : 0) +
+					 (a_actor2->IsDynamic() ? 1.0f / a_actor2->GetMass() : 0);
 		glm::vec3 r1 = collision.point - a_actor1->GetPosition();
 		glm::vec3 r2 = collision.point - a_actor2->GetPosition();
-
-		glm::vec3 q1 = glm::inverse(a_actor1->GetOrientation()) *
-					   (glm::inverse(a_actor1->GetInertiaTensor()) *
-						glm::cross(r1, collision.normal));
-		glm::vec3 q2 = glm::inverse(a_actor2->GetOrientation()) *
-					   (glm::inverse(a_actor2->GetInertiaTensor()) *
-						glm::cross(r2, collision.normal));
-
-		float lambda = fmin(a_actor1->m_material.elasticity, a_actor2->m_material.elasticity) * 2.0f *
+		glm::mat3 invI1 = glm::inverse(a_actor1->GetInertiaTensor());
+		glm::mat3 invI2 = glm::inverse(a_actor2->GetInertiaTensor());
+		glm::vec3 j = -e * n * glm::dot(Vr, n) /
+							(invM + glm::dot(n, glm::cross(invI1 * glm::cross(r1, n), r1)) +
+							glm::dot(n, glm::cross(invI2 * glm::cross(r2, n), r2)));
+		if (a_actor1->IsDynamic())
+			a_actor1->ApplyImpulse(-j, collision.point);
+		if (a_actor2->IsDynamic())
+			a_actor2->ApplyImpulse(j, collision.point);
 
 		/*
-		// apply collision force
+		// collision force
 		glm::vec3 v1 = collision.normal * glm::dot(collision.normal, a_actor1->GetVelocity());
 		glm::vec3 v2 = collision.normal * glm::dot(collision.normal, a_actor2->GetVelocity());
-		glm::vec3 tangentdv = (a_actor2->GetPointVelocity(collision.normal) - v2) -
-							  (a_actor1->GetPointVelocity(collision.normal) - v1);
-		float e = fmin(a_actor1->m_material.elasticity, a_actor2->m_material.elasticity) + 1;
-		float sf = fmin(a_actor1->m_material.staticFriction, a_actor2->m_material.staticFriction);
-		float df = fmin(a_actor1->m_material.dynamicFriction, a_actor2->m_material.dynamicFriction);
-		if (a_actor1->IsDynamic() && a_actor2->IsDynamic())
-		{
-			float m1 = a_actor1->GetMass();
-			float m2 = a_actor2->GetMass();
-			float m = m1 * m2 / (m1 + m2);
-			glm::vec3 f = (v2 - v1) * e * m;
-			if (glm::length2(tangentdv * m) > glm::length(f * sf))
-			{
-				a_actor1->ApplyImpulse(tangentdv * glm::length(f) * df, collision.point);
-			}
+		glm::vec3 dv = v2 - v1;
+		//glm::vec3 surfaceDV = (a_actor2->GetPointVelocity(collision.point) - v2) -
+		//					  (a_actor1->GetPointVelocity(collision.point) - v1);
+		//surfaceDV -= collision.normal * glm::dot(collision.normal, surfaceDV);
+		float m = (!a_actor2->IsDynamic() ? a_actor1->GetMass() :
+				   !a_actor1->IsDynamic() ? a_actor2->GetMass() :
+				   a_actor1->GetMass() * a_actor2->GetMass() / (a_actor1->GetMass() + a_actor2->GetMass()));
+		glm::vec3 f = dv * (fmin(a_actor1->m_material.elasticity, a_actor2->m_material.elasticity) + 1) * m;
+		if (a_actor1->IsDynamic())
 			a_actor1->ApplyImpulse(f, collision.point);
+		if (a_actor2->IsDynamic())
 			a_actor2->ApplyImpulse(-f, collision.point);
-		}
-		else if (a_actor1->IsDynamic())
-		{
-			a_actor1->ApplyImpulse((v2 - v1) * e * a_actor1->GetMass(), collision.point);
-		}
-		else if (a_actor2->IsDynamic())
-		{
-			a_actor2->ApplyImpulse((v1 - v2) * e * a_actor2->GetMass(), collision.point);
-		}/**/
 
+		// friction force
+		glm::vec3 surfaceDV = a_actor2->GetPointVelocity(collision.point) -
+							  a_actor1->GetPointVelocity(collision.point);
+		surfaceDV -= collision.normal * glm::dot(collision.normal, surfaceDV);
+		if (glm::length2(surfaceDV * m) >
+			glm::length2(f * 0.5f * (a_actor1->m_material.staticFriction +
+									 a_actor2->m_material.staticFriction)))
+		{
+			glm::vec3 friction = -surfaceDV * glm::length(f) * 0.5f * (a_actor1->m_material.dynamicFriction +
+																	   a_actor2->m_material.dynamicFriction);
+			if (a_actor1->IsDynamic())
+				a_actor1->ApplyImpulse(friction, collision.point);
+			if (a_actor2->IsDynamic())
+				a_actor2->ApplyImpulse(-friction, collision.point);
+		}/**/
 	}
 }
 
@@ -143,7 +149,7 @@ void Actor::ApplyAngularImpulse(const glm::vec3& a_angularImpulse)
 	{
 		float i = GetRotationalInertia(a_angularImpulse);
 		if (0 != i)
-			AccelerateRotation(a_angularImpulse / i);
+			AccelerateRotation(glm::inverse(GetInertiaTensor()) * a_angularImpulse);
 	}
 }
 void Actor::ApplyImpulse(const glm::vec3& a_impulse, const glm::vec3& contactPoint)
@@ -159,8 +165,8 @@ void Actor::ApplyImpulse(const glm::vec3& a_impulse, const glm::vec3& contactPoi
 		{
 			glm::vec3 linearImpulse = glm::normalize(a_impulse) *
 									  fabs(glm::dot(a_impulse, glm::normalize(d)));
-			ApplyLinearImpulse(linearImpulse);
-			ApplyAngularImpulse(glm::cross(d, a_impulse - linearImpulse));
+			ApplyLinearImpulse(a_impulse);// linearImpulse);
+			ApplyAngularImpulse(glm::cross(d, a_impulse/* - linearImpulse/**/));
 		}
 	}
 }

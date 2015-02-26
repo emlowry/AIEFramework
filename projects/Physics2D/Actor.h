@@ -16,8 +16,8 @@ public:
 		float rotationalDrag;
 		float staticFriction;
 		float dynamicFriction;
-		Material(float a_density = 1.0f, float a_elasticity = 0.99f,
-				 float a_staticFriction = 0.01f, float a_dynamicFriction = 0.01f,
+		Material(float a_density = 1.0f, float a_elasticity = 0.9f,
+				 float a_staticFriction = 1.0f, float a_dynamicFriction = 1.0f,
 				 float a_linearDrag = 0.1f, float a_rotationalDrag = 0.1f)
 			: density(a_density), elasticity(a_elasticity),
 			  linearDrag(a_linearDrag), rotationalDrag(a_rotationalDrag),
