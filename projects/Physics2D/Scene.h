@@ -8,13 +8,9 @@ class Scene
 public:
 
 	Scene(const glm::vec3& a_gravity = glm::vec3(0.0f, -9.81f, 0.0f),
-		  float a_timeStep = 0.01f,
-		  float a_minLinearSpeed = 0.001f,
-		  float a_minAngularSpeed = 0.001f)
+		  float a_timeStep = 0.01f)
 		: m_gravity(a_gravity), m_timeStep(a_timeStep),
-		  m_lastUpdate(Utility::getTotalTime()),
-		  m_minLinearSpeed2(a_minLinearSpeed * a_minLinearSpeed),
-		  m_minAngularSpeed2(a_minAngularSpeed * a_minAngularSpeed) {}
+		  m_lastUpdate(Utility::getTotalTime()) {}
 	~Scene() { ClearActors(); }
 
 	void AddActor(Actor* a_actor);
@@ -32,8 +28,6 @@ protected:
 	glm::vec3 m_gravity;
 	float m_timeStep;
 	float m_lastUpdate;
-	float m_minLinearSpeed2;
-	float m_minAngularSpeed2;
 
 	std::set<Actor*> m_actors;
 

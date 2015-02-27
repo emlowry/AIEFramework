@@ -18,14 +18,11 @@ public:
 		float dynamicFriction;
 		Material(float a_density = 1.0f, float a_elasticity = 0.9f,
 				 float a_staticFriction = 1.0f, float a_dynamicFriction = 1.0f,
-				 float a_linearDrag = 0.1f, float a_rotationalDrag = 0.1f)
+				 float a_linearDrag = 0.5f, float a_rotationalDrag = 0.5f)
 			: density(a_density), elasticity(a_elasticity),
 			  linearDrag(a_linearDrag), rotationalDrag(a_rotationalDrag),
 			  staticFriction(a_staticFriction), dynamicFriction(a_dynamicFriction) {}
 	};
-
-	static const float MIN_LINEAR_SPEED;
-	static const float MIN_ANGULAR_SPEED;
 
 	Actor(const Geometry& a_geometry,
 		  const glm::vec4& a_color = glm::vec4(0.5f, 0.5f, 0.5f, 1.0f),
@@ -34,20 +31,26 @@ public:
 		  const glm::vec3& a_velocity = glm::vec3(0),
 		  const glm::vec3& a_angularVelocity = glm::vec3(0),
 		  float a_mass = 0.0f,
-		  const glm::mat3& a_inertiaTensor = glm::mat3(0))
+		  const glm::mat3& a_inertiaTensor = glm::mat3(0),
+		  float a_minSpeed = 0.1f,
+		  float a_minAngularSpeed = 0.1f)
 		: m_color(a_color), m_geometry(a_geometry.Clone()), m_dynamic(a_dynamic),
 		  m_material(a_material), m_velocity(a_velocity), m_angularVelocity(a_angularVelocity),
-		  m_mass(a_mass), m_inertiaTensor(a_inertiaTensor), m_force(0), m_torque(0) {}
+		  m_mass(a_mass), m_inertiaTensor(a_inertiaTensor), m_force(0), m_torque(0),
+		  m_minSpeed2(a_minSpeed * a_minSpeed), m_minAngularSpeed2(a_minAngularSpeed * a_minAngularSpeed) {}
 	Actor(const Geometry& a_geometry,
 		  const glm::vec4& a_color,
 		  const Material& a_material,
 		  const glm::vec3& a_velocity = glm::vec3(0),
 		  const glm::vec3& a_angularVelocity = glm::vec3(0),
 		  float a_mass = 0.0f,
-		  const glm::mat3& a_inertiaTensor = glm::mat3(0))
+		  const glm::mat3& a_inertiaTensor = glm::mat3(0),
+		  float a_minSpeed = 0.1f,
+		  float a_minAngularSpeed = 0.1f)
 		: m_color(a_color), m_geometry(a_geometry.Clone()), m_dynamic(true),
 		  m_material(a_material), m_velocity(a_velocity), m_angularVelocity(a_angularVelocity),
-		  m_mass(a_mass), m_inertiaTensor(a_inertiaTensor), m_force(0), m_torque(0) {}
+		  m_mass(a_mass), m_inertiaTensor(a_inertiaTensor), m_force(0), m_torque(0),
+		  m_minSpeed2(a_minSpeed * a_minSpeed), m_minAngularSpeed2(a_minAngularSpeed * a_minAngularSpeed) {}
 	~Actor() { delete m_geometry; m_geometry = nullptr; }
 
 	virtual void Update(float a_deltaTime, const glm::vec3& a_gravity = glm::vec3(0));
@@ -57,13 +60,14 @@ public:
 	}
 
 	const glm::vec4& GetColor() const { return m_color; }
+	void SetColor(const glm::vec4& a_color) { m_color = a_color; }
 	const glm::vec3& GetPosition() const { return m_geometry->position; }
 	const glm::quat& GetOrientation() const { return m_geometry->orientation(); }
 	const Geometry& GetGeometry() const { return *m_geometry; }
 	Geometry& GetGeometry() { return *m_geometry; }
 	const glm::vec3& GetVelocity() const { return m_velocity; }
 	const glm::vec3& GetAngularVelocity() const { return m_angularVelocity; }
-	glm::vec3 GetPointVelocity(const glm::vec3& a_point) const;
+	glm::vec3 GetPointVelocity(const glm::vec3& a_point, bool a_ignoreOutside = true) const;
 	float GetMass() const
 	{
 		return (0 != m_mass ? m_mass : m_material.density * m_geometry->volume());
@@ -120,6 +124,8 @@ public:
 	void ApplyLinearImpulse(const glm::vec3& a_impulse);
 	void ApplyAngularImpulse(const glm::vec3& a_angularImpulse);
 
+	void EnforceMinSpeed();
+
 	static void ResolveCollision(Actor* a_actor1, Actor* a_actor2);
 
 protected:
@@ -134,4 +140,6 @@ protected:
 	glm::vec3 m_angularVelocity;
 	glm::vec3 m_force;
 	glm::vec3 m_torque;
+	float m_minSpeed2;
+	float m_minAngularSpeed2;
 };

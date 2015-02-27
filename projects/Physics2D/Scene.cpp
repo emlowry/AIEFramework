@@ -43,15 +43,6 @@ void Scene::Update()
 			for (auto actor2 : unchecked)
 				Actor::ResolveCollision(actor1, actor2);
 		}
-
-		// speed threshold
-		for (auto actor : m_actors)
-		{
-			if (glm::length2(actor->GetVelocity()) < m_minLinearSpeed2)
-				actor->SetVelocity();
-			if (glm::length2(actor->GetAngularVelocity()) < m_minAngularSpeed2)
-				actor->SetAngularVelocity();
-		}
 	}
 }
 

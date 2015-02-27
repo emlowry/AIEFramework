@@ -1,10 +1,26 @@
 #pragma once
 
 #include "Application.h"
+#include "FBXFile.h"
 #include <glm/glm.hpp>
 #include <PxPhysicsAPI.h>
 
 using namespace physx;
+
+struct OGL_FBXRenderData
+{
+	unsigned int VBO; // vertex buffer object
+	unsigned int IBO; // index buffer object
+	unsigned int VAO; // vertex array object
+};
+
+//simple scene node
+struct SceneNode
+{
+	PxRigidActor* physXActor; //actor which controls this node
+	FBXFile* fbxFile; //fbx file to use for this node
+	glm::mat4 transform; //the nodes transform
+};
 
 // derived application class that wraps up all globals neatly
 class PhysXTutorials : public Application
@@ -21,10 +37,17 @@ protected:
 	virtual void onDraw();
 	virtual void onDestroy();
 
+	void InitFBXSceneResource(FBXFile *a_pScene);
+	void UpdateFBXSceneResource(FBXFile *a_pScene);
+	void DestroyFBXSceneResource(FBXFile *a_pScene);
+
 	void setUpPhysX();
 	void setUpVisualDebugger();
 	void updatePhysX();
 	void cleanUpPhysX();
+
+	void setFBXTransform(PxTransform transform, SceneNode* sceneNode);
+	void renderFBX(SceneNode* sceneNode);
 
 	void addWidget(PxShape* shape, PxActor* actor);
 	void addSphere(PxShape* pShape, PxActor* actor);
@@ -34,12 +57,14 @@ protected:
 
 	void controlPlayer(float a_deltaTime);
 	void addPlatforms();
+	void pickingExample1();
 
 	void fire();
 	void reset();
 
 	void tutorial_1();
 	void tutorial_2();
+	void tutorial_3();
 
 	float m_lastFireTime = 0.0f;
 
@@ -53,6 +78,11 @@ protected:
 
 	PxRigidDynamic* m_playerActor = nullptr;
 	PxTransform m_startingPlayerPos;
+
+	unsigned int m_shader;
+
+	//very simple scene graph
+	std::vector<SceneNode*> m_sceneNodes;
 };
 
 class myAllocator : public PxAllocatorCallback

@@ -41,51 +41,80 @@ bool Physics2D::onCreate(int a_argc, char* a_argv[])
 	m_scene = new Scene();
 
 	// set up pool table
-	Actor::Material felt(1.0f, 0.75f, 1.5f, 1.5f);
-	m_scene->AddActor(new Actor(Geometry::Plane(40, 1.0f, glm::vec3(0), glm::vec3(0, 1, 0), glm::vec3(0, 0, -1)),
-								glm::vec4(0, 1, 0, 0), false, felt));
-	m_scene->AddActor(new Actor(Geometry::Box(glm::vec3(11, 1, 20.5), glm::vec3(0, -1.125, 0)),
-								glm::vec4(0, 0.5f, 0, 1), false, felt));
+	Actor::Material felt(1.0f, 0.5f, 2.0f, 2.0f);
+	Actor::Material wood(1.0f, 0.9f, 0.9f, 0.9f);
+	/*m_scene->AddActor(new Actor(Geometry::Plane(40, 1.0f, glm::vec3(0), glm::vec3(0, 1, 0), glm::vec3(0, 0, -1)),
+								glm::vec4(0, 1, 0, 0), false, felt));/**/
+	m_scene->AddActor(new Actor(Geometry::Box(glm::vec3(10, 1, 19.5), glm::vec3(0, -1, 0)),
+								glm::vec4(0, 0.625f, 0.125f, 1), false, felt));
 	m_scene->AddActor(new Actor(Geometry::Box(glm::vec3(1, 1, 8), glm::vec3(11, 1, 9.5)),
-								glm::vec4(0, 0.5f, 0, 1), false, felt));
+								glm::vec4(0, 0.625f, 0.125f, 1), false, felt));
 	m_scene->AddActor(new Actor(Geometry::Box(glm::vec3(1, 1, 8), glm::vec3(11, 1, -9.5)),
-								glm::vec4(0, 0.5f, 0, 1), false, felt));
+								glm::vec4(0, 0.625f, 0.125f, 1), false, felt));
 	m_scene->AddActor(new Actor(Geometry::Box(glm::vec3(1, 1, 8), glm::vec3(-11, 1, 9.5)),
-								glm::vec4(0, 0.5f, 0, 1), false, felt));
+								glm::vec4(0, 0.625f, 0.125f, 1), false, felt));
 	m_scene->AddActor(new Actor(Geometry::Box(glm::vec3(1, 1, 8), glm::vec3(-11, 1, -9.5)),
-								glm::vec4(0, 0.5f, 0, 1), false, felt));
+								glm::vec4(0, 0.625f, 0.125f, 1), false, felt));
 	m_scene->AddActor(new Actor(Geometry::Box(glm::vec3(8, 1, 1), glm::vec3(0, 1, 20.5)),
-								glm::vec4(0, 0.5f, 0, 1), false, felt));
+								glm::vec4(0, 0.625f, 0.125f, 1), false, felt));
 	m_scene->AddActor(new Actor(Geometry::Box(glm::vec3(8, 1, 1), glm::vec3(0, 1, -20.5)),
-								glm::vec4(0, 0.5f, 0, 1), false, felt));
+								glm::vec4(0, 0.625f, 0.125f, 1), false, felt));
 
 	// add balls
-	Actor::Material ivory;
-	m_cueBall = new Actor(Geometry::Sphere(1, glm::vec3(0, 1, 10)), glm::vec4(0.5f, 0.5f, 0.5f, 1), ivory);
-	m_scene->AddActor(m_cueBall);
-	m_scene->AddActor(new Actor(Geometry::Box(glm::vec3(1), glm::vec3(0, 1, -9.75)), glm::vec4(0, 0, 0, 1), ivory));
-	//m_scene->AddActor(new Actor(Geometry::Sphere(1, glm::vec3(0, 1, -10)), glm::vec4(1, 1, 0, 1), ivory));
-	m_scene->AddActor(new Actor(Geometry::Sphere(1, glm::vec3(1.01, 1, -11.75)), glm::vec4(1, 0, 0, 0.5), ivory));
-	m_scene->AddActor(new Actor(Geometry::Sphere(1, glm::vec3(-1.01, 1, -11.75)), glm::vec4(0, 0, 1, 0.5), ivory));
-	m_scene->AddActor(new Actor(Geometry::Sphere(1, glm::vec3(2.02, 1, -13.5)), glm::vec4(1, 1, 0, 0.5), ivory));
-	m_scene->AddActor(new Actor(Geometry::Sphere(1, glm::vec3(0, 1, -13.5)), glm::vec4(0, 0, 0, 1), ivory));
-	m_scene->AddActor(new Actor(Geometry::Sphere(1, glm::vec3(-2.02, 1, -13.5)), glm::vec4(0, 1, 0, 1), ivory));
-	m_scene->AddActor(new Actor(Geometry::Sphere(1, glm::vec3(3.03, 1, -15.25)), glm::vec4(1, 0.5, 0, 1), ivory));
-	m_scene->AddActor(new Actor(Geometry::Sphere(1, glm::vec3(1.01, 1, -15.25)), glm::vec4(0.5, 0, 1, 0.5), ivory));
-	m_scene->AddActor(new Actor(Geometry::Sphere(1, glm::vec3(-1.01, 1, -15.25)), glm::vec4(1, 0, 0.5, 1), ivory));
-	m_scene->AddActor(new Actor(Geometry::Sphere(1, glm::vec3(-3.03, 1, -15.25)), glm::vec4(1, 0.5, 0, 0.5), ivory));
-	m_scene->AddActor(new Actor(Geometry::Sphere(1, glm::vec3(4.04, 1, -17)), glm::vec4(1, 0, 0.5, 0.5), ivory));
-	m_scene->AddActor(new Actor(Geometry::Sphere(1, glm::vec3(2.02, 1, -17)), glm::vec4(0, 0, 1, 1), ivory));
-	m_scene->AddActor(new Actor(Geometry::Sphere(1, glm::vec3(0, 1, -17)), glm::vec4(0, 1, 0, 0.5), ivory));
-	m_scene->AddActor(new Actor(Geometry::Sphere(1, glm::vec3(-2.02, 1, -17)), glm::vec4(1, 0, 0, 1), ivory));
-	m_scene->AddActor(new Actor(Geometry::Sphere(1, glm::vec3(-4.04, 1, -17)), glm::vec4(0.5, 0, 1, 1), ivory));
-	m_aiming = m_cued = false;
-	/*LaunchProjectile(glm::quarter_pi<float>(), 20, glm::vec4(1, 0, 0, 1));
-	LaunchProjectile(glm::pi<float>() / 3, 20, glm::vec4(0, 1, 0, 1));
-	LaunchProjectile(glm::half_pi<float>(), 20, glm::vec4(0, 0, 1, 1));
-	LaunchProjectile(0, 20, glm::vec4(1, 1, 0, 1));/**/
+	m_cueBall = nullptr;
+	for (unsigned int i = 0; i < BALL_COUNT; ++i)
+		m_balls[i] = nullptr;
+	Setup();
+	m_threshold = -1.5f;
 	
 	return true;
+}
+
+void Physics2D::ClearBalls()
+{
+	if (nullptr != m_cueBall)
+	{
+		m_scene->DestroyActor(m_cueBall);
+		m_cueBall = nullptr;
+	}
+	for (unsigned int i = 0; i < BALL_COUNT; ++i)
+	{
+		if (nullptr != m_balls[i])
+		{
+			m_scene->DestroyActor(m_balls[i]);
+			m_balls[i] = nullptr;
+		}
+	}
+}
+void Physics2D::Setup()
+{
+	// remove existing balls
+	ClearBalls();
+
+	// create balls
+	Actor::Material ivory;
+	m_cueBall = new Actor(Geometry::Sphere(1, glm::vec3(0, 1, 10)), glm::vec4(1), ivory);
+	m_balls[0] = new Actor(Geometry::Sphere(1, glm::vec3(0, 1, -10)), glm::vec4(1, 1, 0, 1), ivory);
+	m_balls[1] = new Actor(Geometry::Sphere(1, glm::vec3(1.01, 1, -11.75)), glm::vec4(1, 0, 0, 0.5), ivory);
+	m_balls[2] = new Actor(Geometry::Sphere(1, glm::vec3(-1.01, 1, -11.75)), glm::vec4(0, 0, 1, 0.5), ivory);
+	m_balls[3] = new Actor(Geometry::Sphere(1, glm::vec3(2.02, 1, -13.5)), glm::vec4(1, 1, 0, 0.5), ivory);
+	m_balls[4] = new Actor(Geometry::Sphere(1, glm::vec3(0, 1, -13.5)), glm::vec4(0, 0, 0, 1), ivory);
+	m_balls[5] = new Actor(Geometry::Sphere(1, glm::vec3(-2.02, 1, -13.5)), glm::vec4(0, 1, 0, 1), ivory);
+	m_balls[6] = new Actor(Geometry::Sphere(1, glm::vec3(3.03, 1, -15.25)), glm::vec4(1, 0.5, 0, 1), ivory);
+	m_balls[7] = new Actor(Geometry::Sphere(1, glm::vec3(1.01, 1, -15.25)), glm::vec4(0.5, 0, 1, 0.5), ivory);
+	m_balls[8] = new Actor(Geometry::Sphere(1, glm::vec3(-1.01, 1, -15.25)), glm::vec4(1, 0, 0.5, 1), ivory);
+	m_balls[9] = new Actor(Geometry::Sphere(1, glm::vec3(-3.03, 1, -15.25)), glm::vec4(1, 0.5, 0, 0.5), ivory);
+	m_balls[10] = new Actor(Geometry::Sphere(1, glm::vec3(4.04, 1, -17)), glm::vec4(1, 0, 0.5, 0.5), ivory);
+	m_balls[11] = new Actor(Geometry::Sphere(1, glm::vec3(2.02, 1, -17)), glm::vec4(0, 0, 1, 1), ivory);
+	m_balls[12] = new Actor(Geometry::Sphere(1, glm::vec3(0, 1, -17)), glm::vec4(0, 1, 0, 0.5), ivory);
+	m_balls[13] = new Actor(Geometry::Sphere(1, glm::vec3(-2.02, 1, -17)), glm::vec4(1, 0, 0, 1), ivory);
+	m_balls[14] = new Actor(Geometry::Sphere(1, glm::vec3(-4.04, 1, -17)), glm::vec4(0.5, 0, 1, 1), ivory);
+
+	// add balls to scene
+	m_scene->AddActor(m_cueBall);
+	for (auto ball : m_balls)
+		m_scene->AddActor(ball);
+	m_aiming = m_cued = false;
 }
 
 void Physics2D::LaunchProjectile(float a_angle, float a_speed, const glm::vec4& a_color)
@@ -165,8 +194,43 @@ void Physics2D::onUpdate(float a_deltaTime)
 			{
 				m_aiming = false;
 				m_cued = true;
-				m_cueBall->SetVelocity((m_cueBall->GetPosition() - cue) * 2.0f);
+				glm::vec3 aim = m_cueBall->GetPosition() - cue;
+				m_cueBall->ApplyImpulse(aim * 2.0f * m_cueBall->GetMass(),
+										m_cueBall->GetGeometry().ClosestSurfacePointTo(cue));
+				m_cueBall->SetColor(glm::vec4(0.95f, 0.95f, 0.9f, 1));
 			}
+		}
+	}
+	else
+	{
+		if (m_cueBall->GetPosition().y < m_threshold)
+			Setup();
+		bool still = glm::vec3(0) == m_cueBall->GetVelocity();
+		unsigned int remainingBalls = 0;
+		for (unsigned int i = 0; i < BALL_COUNT; ++i)
+		{
+			if (nullptr == m_balls[i])
+				continue;
+			++remainingBalls;
+			if (m_balls[i]->GetPosition().y < m_threshold)
+			{
+				m_scene->DestroyActor(m_balls[i]);
+				m_balls[i] = nullptr;
+				--remainingBalls;
+			}
+			else if (still)
+			{
+				still = glm::vec3(0) == m_balls[i]->GetVelocity();
+			}
+		}
+		if (0 == remainingBalls)
+		{
+			Setup();
+		}
+		else if (still)
+		{
+			m_aiming = m_cued = false;
+			m_cueBall->SetColor(glm::vec4(1));
 		}
 	}
 
