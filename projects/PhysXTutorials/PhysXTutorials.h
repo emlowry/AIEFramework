@@ -38,7 +38,6 @@ protected:
 	virtual void onDestroy();
 
 	void InitFBXSceneResource(FBXFile *a_pScene);
-	void UpdateFBXSceneResource(FBXFile *a_pScene);
 	void DestroyFBXSceneResource(FBXFile *a_pScene);
 
 	void setUpPhysX();
@@ -46,6 +45,9 @@ protected:
 	void updatePhysX();
 	void cleanUpPhysX();
 
+	PxRigidDynamic* addFBXWithConvexCollision(FBXFile* fbxFile, PxTransform transform);
+	PxRigidStatic* addStaticFBXWithTriangleCollision(FBXFile* fbxFile, PxTransform transform);
+	PxRigidStatic* addStaticHeightMapCollision(PxTransform transform);
 	void setFBXTransform(PxTransform transform, SceneNode* sceneNode);
 	void renderFBX(SceneNode* sceneNode);
 
@@ -54,6 +56,7 @@ protected:
 	void addBox(PxShape* pShape, PxActor* actor);
 	void addPlane(PxShape* pShape, PxActor* actor);
 	void addCapsule(PxShape* pShape, PxActor* actor);
+	void addHeightField(PxShape* pShape, PxActor* actor);
 
 	void controlPlayer(float a_deltaTime);
 	void addPlatforms();

@@ -1,4 +1,5 @@
 #include "PhysXTutorials.h"
+#include "PxToolkit.h"
 #include "Gizmos.h"
 #include "Utilities.h"
 #include <GL/glew.h>
@@ -434,6 +435,161 @@ void PhysXTutorials::updatePhysX()
 	}
 }
 
+PxConvexMesh* makeConvexMesh(FBXMeshNode* mesh)
+{
+	int numberVerts = mesh->m_vertices.size();
+	PxVec3 *verts = new PxVec3[numberVerts];
+	//unfortunately we need to convert verts from glm to Px format
+	for (int vertIDX = 0; vertIDX< numberVerts; vertIDX++)
+	{
+		glm::vec4 temp = mesh->m_vertices[vertIDX].position;
+		verts[vertIDX] = PxVec3(temp.x, temp.y, temp.z) * .01f;  //scale the mesh because it's way too big
+	}
+	//control structure for convex mesh cooker
+	PxConvexMeshDesc convexDesc;
+	convexDesc.points.count = numberVerts;
+	convexDesc.points.stride = sizeof(PxVec3);
+	convexDesc.points.data = verts;
+	convexDesc.flags = PxConvexFlag::eCOMPUTE_CONVEX;
+	PxToolkit::MemoryOutputStream buf;
+	//cook the mesh
+	if (!g_PhysicsCooker->cookConvexMesh(convexDesc, buf))
+		return NULL;
+	PxToolkit::MemoryInputData input(buf.getData(), buf.getSize());
+	PxConvexMesh* result = g_Physics->createConvexMesh(input);
+	delete(verts);
+	return result;
+}
+
+PxRigidDynamic* PhysXTutorials::addFBXWithConvexCollision(FBXFile* fbxFile, PxTransform transform)
+{
+	//create a phsyics material for our tank wiuth low friction
+	//because we want to push it around
+	PxMaterial*  tankMaterial = g_Physics->createMaterial(0.2f, 0.2f, 0.2f);    //static friction, dynamic friction, restitution
+	//load and cook a mesh
+	PxRigidDynamic*dynamicActor;
+	float density = 10;
+	if (0 < fbxFile->getMeshCount())
+	{
+		PxConvexMesh* convexMesh = makeConvexMesh(fbxFile->getMeshByIndex(0));
+		dynamicActor = PxCreateDynamic(*g_Physics, transform, (PxConvexMeshGeometry)convexMesh, *tankMaterial, density);
+	}
+	else
+	{
+		PxBoxGeometry box(1, 1, 1);
+		dynamicActor = PxCreateDynamic(*g_Physics, transform, box, *tankMaterial, density);
+	}
+	dynamicActor->setLinearDamping(.5f);
+	dynamicActor->setAngularDamping(100);
+	for (unsigned int i = 1; i < fbxFile->getMeshCount(); ++i)
+	{
+		PxConvexMesh* convexMesh = makeConvexMesh(fbxFile->getMeshByIndex(i));
+		PxTransform pose = PxTransform(PxVec3(0.0f, 0, 0.0f), PxQuat(0, PxVec3(0.0f, 0.0f, 1.0f)));
+		dynamicActor->createShape((PxConvexMeshGeometry)convexMesh, *g_PhysicsMaterial, pose);
+		//add it to the physX scene
+	}
+	SceneNode* sceneNode = new SceneNode();
+	sceneNode->fbxFile = fbxFile; //set up the FBXFile
+	sceneNode->physXActor = dynamicActor; //link our scene node to the physics Object
+	m_sceneNodes.push_back(sceneNode); //add it to the scene graph
+	g_PhysicsScene->addActor(*dynamicActor);
+	return dynamicActor;
+}
+
+PxTriangleMesh* makeTriangleMesh(FBXMeshNode* mesh)
+{
+	int numberVerts = mesh->m_vertices.size();
+	PxVec3 *verts = new PxVec3[numberVerts];
+	for (int vertIDX = 0; vertIDX< numberVerts; vertIDX++)
+	{
+		glm::vec4 temp = mesh->m_vertices[vertIDX].position;
+		verts[vertIDX] = PxVec3(temp.x, temp.y, temp.z) * .01f;  //scale the mesh because it's way too big
+	}
+	PxTriangleMeshDesc meshDesc;
+	meshDesc.points.count = numberVerts;
+	meshDesc.points.stride = sizeof(PxVec3);
+	meshDesc.points.data = verts;
+	int triCount = mesh->m_indices.size() / 3;
+	meshDesc.triangles.count = triCount;
+	meshDesc.triangles.stride = 3 * sizeof(PxU32);
+	//unsigned int* indices32	=		mesh->m_indices.data();
+	meshDesc.triangles.data = mesh->m_indices.data();
+	PxToolkit::MemoryOutputStream buf;
+	if (!g_PhysicsCooker->cookTriangleMesh(meshDesc, buf))
+		return nullptr;
+	PxToolkit::MemoryInputData input(buf.getData(), buf.getSize());
+	PxTriangleMesh* result = g_Physics->createTriangleMesh(input);
+	delete(verts);
+	return result;
+}
+
+PxRigidStatic* PhysXTutorials::addStaticFBXWithTriangleCollision(FBXFile* fbxFile, PxTransform transform)
+{
+	//load and cook a mesh
+	PxRigidStatic *staticObject;
+	if (0 < fbxFile->getMeshCount())
+	{
+		PxTriangleMesh* triangleMesh = makeTriangleMesh(fbxFile->getMeshByIndex(0));
+		staticObject = PxCreateStatic(*g_Physics, transform, (PxTriangleMeshGeometry)triangleMesh, *g_PhysicsMaterial);
+	}
+	else
+	{
+		PxBoxGeometry box(1, 1, 1);
+		staticObject = PxCreateStatic(*g_Physics, transform, box, *g_PhysicsMaterial);
+	}
+	for (unsigned int i = 0; i < fbxFile->getMeshCount(); ++i)
+	{
+		PxTriangleMesh* triangleMesh = makeTriangleMesh(fbxFile->getMeshByIndex(i));
+		PxTransform pose = PxTransform(PxVec3(0.0f, 0, 0.0f), PxQuat(0, PxVec3(0.0f, 0.0f, 1.0f)));
+		staticObject->createShape((PxTriangleMeshGeometry)triangleMesh, *g_PhysicsMaterial, pose);
+	}
+	SceneNode* sceneNode = new SceneNode();
+	sceneNode->fbxFile = fbxFile; //set up the FBXFile
+	sceneNode->physXActor = staticObject; //link our scene node to the physics Object
+	m_sceneNodes.push_back(sceneNode); //add it to the scene graph
+	//add it to the physX scene
+	g_PhysicsScene->addActor(*staticObject);
+	return staticObject;
+}
+
+PxRigidStatic* PhysXTutorials::addStaticHeightMapCollision(PxTransform transform)
+{
+	unsigned int numRows = 150;
+	unsigned int numCols = 150;
+	float heightScale = .0012f;
+	float rowScale = 10;
+	float colScale = 10;
+	glm::vec3 center = Px2GlV3(transform.p);
+	PxHeightFieldSample* samples = (PxHeightFieldSample*)_aligned_malloc(sizeof(PxHeightFieldSample)*(numRows*numCols), 16);
+	bool enabled = true;
+	//make height map
+	PxHeightFieldSample* samplePtr = samples;
+	for (int row = 0; row<numRows; ++row)
+	{
+		for (int col = 0; col<numCols; ++col)
+		{
+			float height = sin(row / 10.0f) * cos(col / 10.0f);
+			samplePtr->height = height * 30000.0f;
+			samplePtr->materialIndex1 = 0;
+			samplePtr->materialIndex0 = 0;
+			samplePtr->clearTessFlag();
+			++samplePtr;
+		}
+	}
+	PxHeightFieldDesc hfDesc;
+	hfDesc.format = PxHeightFieldFormat::eS16_TM;
+	hfDesc.nbColumns = numCols;
+	hfDesc.nbRows = numRows;
+	hfDesc.samples.data = samples;
+	hfDesc.samples.stride = sizeof(PxHeightFieldSample);
+
+	PxHeightField* aHeightField = g_Physics->createHeightField(hfDesc);
+	PxHeightFieldGeometry hfGeom(aHeightField, PxMeshGeometryFlags(), heightScale, rowScale, colScale);
+	PxRigidStatic* staticObject = PxCreateStatic(*g_Physics, transform, (PxHeightFieldGeometry)hfGeom, *g_PhysicsMaterial);
+	g_PhysicsScene->addActor(*staticObject);
+	return staticObject;
+}
+
 void PhysXTutorials::setFBXTransform(PxTransform transform, SceneNode* sceneNode)
 {
 	PxMat44 m(transform); //convert tranform to a 4X4 matrix
@@ -523,6 +679,9 @@ void PhysXTutorials::addWidget(PxShape* shape, PxActor* actor)
 		break;
 	case PxGeometryType::eCAPSULE:
 		addCapsule(shape, actor);
+		break;
+	case PxGeometryType::eHEIGHTFIELD:
+		addHeightField(shape, actor);
 		break;
 	default:
 		break;
@@ -652,6 +811,45 @@ void PhysXTutorials::addCapsule(PxShape* pShape, PxActor* actor)
 	glm::mat4 m2 = glm::rotate(M, 11 / 7.0f, glm::vec3(0.0f, 0.0f, 1.0f)); //adds an additional rotation onto the matrix
 	//now we can use this matrix and the other data to create the cylinder...
 	Gizmos::addCylinderFilled(position, radius, halfHeight, 10, colour, &m2);
+}
+
+void addHeightField(PxShape* pShape, PxActor* actor)
+{
+	glm::vec4 colour(0, 1, 0, 1);
+	PxHeightFieldGeometry heightFieldGeometry;
+	bool status = pShape->getHeightFieldGeometry(heightFieldGeometry);
+	unsigned int rows = 0;
+	unsigned int columns = 0;
+	glm::vec3 scale = glm::vec3(0);
+	PxHeightFieldSample* samples = nullptr;
+	if (status)
+	{
+		PxHeightField* heightField = heightFieldGeometry.heightField;
+		rows = heightField->getNbRows();
+		columns = heightField->getNbColumns();
+		scale = glm::vec3(heightFieldGeometry.rowScale,
+						  heightFieldGeometry.heightScale,
+						  heightFieldGeometry.columnScale);
+		unsigned int size = sizeof(PxHeightFieldSample)*(rows*columns);
+		samples = (PxHeightFieldSample*)_aligned_malloc(size, 16);
+		heightField->saveCells((void*)samples, size);
+	}
+	for (unsigned int row = 0; row < rows - 1; ++row)
+	{
+		for (unsigned int col = 0; col < columns - 1; ++col)
+		{
+			glm::vec3 topLeft(//TODO
+		}
+	}
+
+	//get the world transform for the centre of this PhysX collision volume
+	PxTransform transform = PxShapeExt::getGlobalPose(*pShape);
+	//use it to create a matrix
+	PxMat44 m(transform);
+	//convert it to an open gl matrix for adding our gizmos
+	glm::mat4 M = Px2Glm(m);
+	//get the world position from the PhysX tranform
+	glm::vec3 position = Px2GlV3(transform.p);
 }
 
 void PhysXTutorials::fire()
@@ -869,6 +1067,9 @@ void PhysXTutorials::tutorial_3()
 	fbxFile->initialiseOpenGLTextures();
 	InitFBXSceneResource(fbxFile);
 
+	addStaticFBXWithTriangleCollision(fbxFile, PxTransform(PxVec3(0, 0, 0)));
+
+	/*
 	float density = 10;
 	//create our first box for the tank body
 	PxBoxGeometry box(1, 0.35, 1.6);
@@ -913,4 +1114,5 @@ void PhysXTutorials::tutorial_3()
 	sceneNode->physXActor = dynamicActor; //link our scene node to the physics Object
 	m_sceneNodes.push_back(sceneNode); //add it to the scene graph
 	dynamicActor->userData = (void*)sceneNode;  //Link the dynamic actor to the scene node
+	/**/
 }
