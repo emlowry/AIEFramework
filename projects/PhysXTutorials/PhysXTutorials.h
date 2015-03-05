@@ -60,6 +60,15 @@ protected:
 
 	void controlPlayer(float a_deltaTime);
 	void addPlatforms();
+	PxCloth* createCloth(const glm::vec3& a_position,
+						 unsigned int& a_vertexCount,
+						 unsigned int& a_indexCount,
+						 const glm::vec3* a_vertices,
+						 unsigned int* a_indices);
+	void makeCloth();
+	void updateCloth();
+	void drawCloth(const glm::mat4& a_projectionMatrix, const glm::mat4& a_viewMatrix);
+	void destroyCloth();
 	void pickingExample1();
 
 	void fire();
@@ -86,6 +95,17 @@ protected:
 
 	//very simple scene graph
 	std::vector<SceneNode*> m_sceneNodes;
+
+	PxCloth*		m_cloth;
+
+	unsigned int	m_clothShader;
+	unsigned int	m_clothTexture;
+
+	unsigned int	m_clothIndexCount;
+	unsigned int	m_clothVertexCount;
+	glm::vec3*		m_clothPositions;
+
+	unsigned int	m_clothVAO, m_clothVBO, m_clothTextureVBO, m_clothIBO;
 };
 
 class myAllocator : public PxAllocatorCallback

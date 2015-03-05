@@ -28,6 +28,8 @@
     <None Include="shaders\shader.frag" />
     <None Include="shaders\shader.vert" />
     <None Include="models\tanks\battle_tank.fbx" />
+    <None Include="shaders\cloth.vert" />
+    <None Include="shaders\cloth.frag" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="models\tanks\Battle_tank_diffuse.tga" />
@@ -41,5 +43,8 @@
     <Image Include="models\tanks\Hull_tank_Gloss.tga" />
     <Image Include="models\tanks\Hull_tank_Normal.tga" />
     <Image Include="models\tanks\Hull_tank_Spec.tga" />
+    <Image Include="images\crate.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

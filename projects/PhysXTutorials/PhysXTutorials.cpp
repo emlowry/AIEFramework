@@ -1,5 +1,6 @@
 #include "PhysXTutorials.h"
 #include "PxToolkit.h"
+//#include "PxTkStream.h"
 #include "Gizmos.h"
 #include "Utilities.h"
 #include <GL/glew.h>
@@ -8,6 +9,7 @@
 #include <vector>
 #include <iostream>
 #include <functional>
+#include <stb_image.h>
 
 #define DEFAULT_SCREENWIDTH 1280
 #define DEFAULT_SCREENHEIGHT 720
@@ -119,6 +121,11 @@ glm::vec3 Px2GlV3(const PxVec3& a_v)
 	return glm::vec3(a_v.x, a_v.y, a_v.z);
 }
 
+PxVec3 glm2Px(const glm::vec3& a_v)
+{
+	return PxVec3(a_v.x, a_v.y, a_v.z);
+}
+
 
 PhysXTutorials::PhysXTutorials()
 {
@@ -136,7 +143,7 @@ bool PhysXTutorials::onCreate(int a_argc, char* a_argv[])
 	Gizmos::create();
 
 	// create a world-space matrix for a camera
-	m_cameraMatrix = glm::inverse( glm::lookAt(glm::vec3(3.5,1.25,2),glm::vec3(0,0.75,0.5), glm::vec3(0,1,0)) );
+	m_cameraMatrix = glm::inverse( glm::lookAt(glm::vec3(100,100,100),glm::vec3(0,0,0), glm::vec3(0,1,0)) );
 
 	// get window dimensions to calculate aspect ratio
 	int width = 0, height = 0;
@@ -169,6 +176,8 @@ bool PhysXTutorials::onCreate(int a_argc, char* a_argv[])
 	tutorial_3();
 	setUpVisualDebugger();
 
+	makeCloth();
+
 	return true;
 }
 
@@ -183,9 +192,9 @@ void PhysXTutorials::onUpdate(float a_deltaTime)
 	// add an identity matrix gizmo
 	Gizmos::addTransform( glm::mat4(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1) );
 
-	/*controlPlayer(a_deltaTime);
+	controlPlayer(a_deltaTime);
 
-	// fire bullet
+	/*// fire bullet
 	if (glfwGetKey(m_window, GLFW_KEY_ENTER) == GLFW_PRESS)
 	{
 		float time = Utility::getTotalTime();
@@ -199,6 +208,7 @@ void PhysXTutorials::onUpdate(float a_deltaTime)
 	// update PhysX
 	updatePhysX();
 	pickingExample1();
+	updateCloth();
 
 	// quit our application when escape is pressed
 	if (glfwGetKey(m_window,GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -223,6 +233,8 @@ void PhysXTutorials::onDraw()
 
 	for (auto node : m_sceneNodes)
 		renderFBX(node);
+
+	drawCloth(m_projectionMatrix, viewMatrix);
 }
 
 void PhysXTutorials::onDestroy()
@@ -242,6 +254,9 @@ void PhysXTutorials::onDestroy()
 		delete node;
 	}
 	m_sceneNodes.clear();
+	m_playerActor = nullptr;
+
+	destroyCloth();
 }
 
 void PhysXTutorials::InitFBXSceneResource(FBXFile *a_pScene)
@@ -458,7 +473,7 @@ PxConvexMesh* makeConvexMesh(FBXMeshNode* mesh)
 	for (int vertIDX = 0; vertIDX< numberVerts; vertIDX++)
 	{
 		glm::vec4 temp = mesh->m_vertices[vertIDX].position;
-		verts[vertIDX] = PxVec3(temp.x, temp.y, temp.z) * .01f;  //scale the mesh because it's way too big
+		verts[vertIDX] = PxVec3(temp.x, temp.y, temp.z) * .1f;  //scale the mesh because it's way too big
 	}
 	//control structure for convex mesh cooker
 	PxConvexMeshDesc convexDesc;
@@ -518,7 +533,7 @@ PxTriangleMesh* makeTriangleMesh(FBXMeshNode* mesh)
 	for (int vertIDX = 0; vertIDX< numberVerts; vertIDX++)
 	{
 		glm::vec4 temp = mesh->m_vertices[vertIDX].position;
-		verts[vertIDX] = PxVec3(temp.x, temp.y, temp.z) * .01f;  //scale the mesh because it's way too big
+		verts[vertIDX] = PxVec3(temp.x, temp.y, temp.z) * .1f;  //scale the mesh because it's way too big
 	}
 	PxTriangleMeshDesc meshDesc;
 	meshDesc.points.count = numberVerts;
@@ -571,9 +586,9 @@ PxRigidStatic* PhysXTutorials::addStaticHeightMapCollision(PxTransform transform
 {
 	unsigned int numRows = 150;
 	unsigned int numCols = 150;
-	float heightScale = .0006f;
-	float rowScale = 5;
-	float colScale = 5;
+	float heightScale = .0012f;
+	float rowScale = 10;
+	float colScale = 10;
 	glm::vec3 center = Px2GlV3(transform.p);
 	PxHeightFieldSample* samples = (PxHeightFieldSample*)_aligned_malloc(sizeof(PxHeightFieldSample)*(numRows*numCols), 16);
 	bool enabled = true;
@@ -918,61 +933,58 @@ void PhysXTutorials::reset()
 
 void PhysXTutorials::controlPlayer(float a_deltaTime)
 {
+	if (nullptr == m_playerActor)
+		return;
+
 	PxTransform pose = m_playerActor->getGlobalPose(); //get the pose from PhysX
-	pose.q = PxQuat(11 / 7.0f, PxVec3(0, 0, 1));  //force the actor rotation to vertical
-	m_playerActor->setGlobalPose(pose); //reset the actor pose
+	//pose.q = PxQuat(11 / 7.0f, PxVec3(0, 0, 1));  //force the actor rotation to vertical
+	//m_playerActor->setGlobalPose(pose); //reset the actor pose
 	//set linear damping on our actor so it slows down when we stop pressing the key
+	PxMat44 m(pose);
+	glm::mat4 M = Px2Glm(m);
+	glm::vec3 up = glm::normalize((M * glm::vec4(0, 1, 0, 0)).xyz());
+	if (0.1f < fabs(glm::dot(up, Px2GlV3(m_playerActor->getLinearVelocity()))))
+	{
+		m_playerActor->setLinearDamping(0);
+		m_playerActor->setAngularDamping(0);
+		return;
+	}
 	m_playerActor->setLinearDamping(1);
+	m_playerActor->setAngularDamping(20);
+	glm::vec3 forward = glm::normalize((M * glm::vec4(0, 0, 1, 0)).xyz());
+	//forward -= up * glm::dot(up, forward);
+	//forward = glm::normalize(forward);
+	float power = 100.0f;
 
 	if (glfwGetKey(m_window, GLFW_KEY_UP) == GLFW_PRESS)
 	{
-		glm::vec3 force = glm::vec3(m_cameraMatrix[2].x, 0, m_cameraMatrix[2].z);
-		if (0.0f == force.x && 0.0f == force.z)
-			force = glm::vec3(m_cameraMatrix[1].x, 0, m_cameraMatrix[1].z);
-		force = glm::normalize(force) * -100.0f;
-		m_playerActor->addForce(PxVec3(force.x, 0, force.z));
+		glm::vec3 force = forward * power * m_playerActor->getMass();
+		m_playerActor->addForce(PxVec3(force.x, force.y, force.z));
 	}
 	if (glfwGetKey(m_window, GLFW_KEY_DOWN) == GLFW_PRESS)
 	{
-		glm::vec3 force = glm::vec3(m_cameraMatrix[2].x, 0, m_cameraMatrix[2].z);
-		if (0.0f == force.x && 0.0f == force.z)
-			force = glm::vec3(m_cameraMatrix[1].x, 0, m_cameraMatrix[1].z);
-		force = glm::normalize(force) * 100.0f;
-		m_playerActor->addForce(PxVec3(force.x, 0, force.z));
+		glm::vec3 force = forward * -power * m_playerActor->getMass();
+		m_playerActor->addForce(PxVec3(force.x, force.y, force.z));
 	}
 	if (glfwGetKey(m_window, GLFW_KEY_RIGHT) == GLFW_PRESS)
 	{
-		glm::vec3 force = glm::vec3(m_cameraMatrix[0].x, 0, m_cameraMatrix[0].z);
-		if (0.0f == force.x && 0.0f == force.z)
-		{
-			force = glm::vec3(m_cameraMatrix[1].x, 0, m_cameraMatrix[1].z);
-			if (0 > glm::dot(m_cameraMatrix[1].xyz(), glm::vec3(0, 1, 0)))
-				force *= -1.0f;
-		}
-		force = glm::normalize(force) * 100.0f;
-		m_playerActor->addForce(PxVec3(force.x, 0, force.z));
+		glm::vec3 torque = up * -power * m_playerActor->getMassSpaceInertiaTensor().y;
+		m_playerActor->addTorque(PxVec3(torque.x, torque.y, torque.z));
 	}
 	if (glfwGetKey(m_window, GLFW_KEY_LEFT) == GLFW_PRESS)
 	{
-		glm::vec3 force = glm::vec3(m_cameraMatrix[0].x, 0, m_cameraMatrix[0].z);
-		if (0.0f == force.x && 0.0f == force.z)
-		{
-			force = glm::vec3(m_cameraMatrix[1].x, 0, m_cameraMatrix[1].z);
-			if (0 > glm::dot(m_cameraMatrix[1].xyz(), glm::vec3(0, 1, 0)))
-				force *= -1.0f;
-		}
-		force = glm::normalize(force) * -100.0f;
-		m_playerActor->addForce(PxVec3(force.x, 0, force.z));
+		glm::vec3 torque = up * power * m_playerActor->getMassSpaceInertiaTensor().y;
+		m_playerActor->addTorque(PxVec3(torque.x, torque.y, torque.z));
 	}
 	if (glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_PRESS)
 	{
-		m_playerActor->addForce(PxVec3(0, 200, 0));
+		pose.q = PxQuat(0.0f, PxVec3(0, 0, 1));  //force the actor rotation to vertical
+		pose.p += PxVec3(0, 1, 0);
+		m_playerActor->setGlobalPose(pose); //reset the actor pose
+		m_playerActor->setLinearVelocity(PxVec3(0));
+		m_playerActor->setAngularVelocity(PxVec3(0));
+		m_playerActor->addForce(PxVec3(0, 2 * power, 0));
 	}
-}
-
-PxVec3 glm2Px(const glm::vec3& a_v)
-{
-	return PxVec3(a_v.x, a_v.y, a_v.z);
 }
 
 void PhysXTutorials::pickingExample1()
@@ -1090,9 +1102,240 @@ void PhysXTutorials::addPlatforms()
 	}
 }
 
+PxCloth* PhysXTutorials::createCloth(const glm::vec3& a_position,
+									 unsigned int& a_vertexCount,
+									 unsigned int& a_indexCount,
+									 const glm::vec3* a_vertices,
+									 unsigned int* a_indices)
+{
+	// set up the cloth description
+	PxClothMeshDesc clothDesc;
+	clothDesc.setToDefault();
+	clothDesc.points.count = a_vertexCount;
+	clothDesc.triangles.count = a_indexCount / 3;
+	clothDesc.points.stride = sizeof(glm::vec3);
+	clothDesc.triangles.stride = sizeof(unsigned int)* 3;
+	clothDesc.points.data = a_vertices;
+	clothDesc.triangles.data = a_indices;
+
+	// cook the geometry into fabric
+	PxToolkit::MemoryOutputStream buf;
+	if (g_PhysicsCooker->cookClothFabric(clothDesc, PxVec3(0, -9.8f, 0), buf) == false)
+	{
+		return nullptr;
+	}
+
+	PxToolkit::MemoryInputData data(buf.getData(), buf.getSize());
+	PxClothFabric* fabric = g_Physics->createClothFabric(data);
+
+	// set up the particles for each vertex
+	PxClothParticle* particles = new PxClothParticle[a_vertexCount];
+	for (unsigned int i = 0; i < a_vertexCount; ++i)
+	{
+		particles[i].pos = PxVec3(a_vertices[i].x, a_vertices[i].y, a_vertices[i].z);
+
+		// set weights (0 means static)
+		if (a_vertices[i].z == a_position.z)
+			particles[i].invWeight = 0;
+		else
+			particles[i].invWeight = 1.f;
+	}
+
+	// create the cloth then setup the spring properties
+	PxClothCollisionData collisionData;
+	PxCloth* cloth = g_Physics->createCloth(PxTransform(PxVec3(a_position.x, a_position.y, a_position.z)),
+		*fabric, particles, PxClothCollisionData(), PxClothFlag::eSWEPT_CONTACT);
+
+	// we need to set some solver configurations
+	if (cloth != nullptr)
+	{
+		PxClothPhaseSolverConfig bendCfg;
+		bendCfg.solverType = PxClothPhaseSolverConfig::eFAST;
+		bendCfg.stiffness = 1;
+		bendCfg.stretchStiffness = 0.5;
+		cloth->setPhaseSolverConfig(PxClothFabricPhaseType::eBENDING, bendCfg);
+		cloth->setPhaseSolverConfig(PxClothFabricPhaseType::eSTRETCHING, bendCfg);
+		cloth->setPhaseSolverConfig(PxClothFabricPhaseType::eSHEARING, bendCfg);
+		cloth->setPhaseSolverConfig(PxClothFabricPhaseType::eSTRETCHING_HORIZONTAL, bendCfg);
+		cloth->setDampingCoefficient(0.125f);
+	}
+
+	delete[] particles;
+
+	return cloth;
+}
+
+void PhysXTutorials::makeCloth()
+{
+	// set cloth properties
+	float springSize = 0.5f;
+	unsigned int springRows = 40;
+	unsigned int springCols = 40;
+
+	// this position will represent the top middle vertex
+	glm::vec3 clothPosition = glm::vec3(0, 40, 0);
+
+	// shifting grid position for looks
+	float halfWidth = springRows * springSize * 0.5f;
+
+	// generate vertices for a grid with texture coordinates
+	m_clothVertexCount = springRows * springCols;
+	m_clothPositions = new glm::vec3[m_clothVertexCount];
+	glm::vec2* clothTextureCoords = new glm::vec2[m_clothVertexCount];
+	for (unsigned int r = 0; r < springRows; ++r)
+	{
+		for (unsigned int c = 0; c < springCols; ++c)
+		{
+			m_clothPositions[r * springCols + c].x = clothPosition.x + springSize * c - halfWidth;
+			m_clothPositions[r * springCols + c].y = clothPosition.y;
+			m_clothPositions[r * springCols + c].z = clothPosition.z + springSize * r;
+
+			clothTextureCoords[r * springCols + c].x = /*1.0f -*/ c / (springCols - 1.0f);
+			clothTextureCoords[r * springCols + c].y = /*1.0f -*/ r / (springRows - 1.0f);
+		}
+	}
+
+	// set up indices for a grid
+	m_clothIndexCount = (springRows - 1) * (springCols - 1) * 2 * 3;
+	unsigned int* indices = new unsigned int[m_clothIndexCount];
+	unsigned int* index = indices;
+	for (unsigned int r = 0; r < (springRows - 1); ++r)
+	{
+		for (unsigned int c = 0; c < (springCols - 1); ++c)
+		{
+			// indices for the 4 quad corner vertices
+			unsigned int i0 = r * springCols + c;
+			unsigned int i1 = i0 + 1;
+			unsigned int i2 = i0 + springCols;
+			unsigned int i3 = i2 + 1;
+
+			// every second quad changes the triangle order
+			if ((c + r) % 2)
+			{
+				*index++ = i0; *index++ = i2; *index++ = i1;
+				*index++ = i1; *index++ = i2; *index++ = i3;
+			}
+			else
+			{
+				*index++ = i0; *index++ = i2; *index++ = i3;
+				*index++ = i0; *index++ = i3; *index++ = i1;
+			}
+		}
+	}
+
+	// set up opengl data for the grid, with the positions as dynamic
+	glGenVertexArrays(1, &m_clothVAO);
+	glBindVertexArray(m_clothVAO);
+
+	glGenBuffers(1, &m_clothIBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_clothIBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_clothIndexCount * sizeof(unsigned int), indices, GL_STATIC_DRAW);
+
+	glGenBuffers(1, &m_clothVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, m_clothVBO);
+	glBufferData(GL_ARRAY_BUFFER, m_clothVertexCount * (sizeof(glm::vec3)), 0, GL_DYNAMIC_DRAW);
+
+	glEnableVertexAttribArray(0); // position
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (char*)0);
+
+	glGenBuffers(1, &m_clothTextureVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, m_clothTextureVBO);
+	glBufferData(GL_ARRAY_BUFFER, m_clothVertexCount * (sizeof(glm::vec2)), clothTextureCoords, GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(1); // texture
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (char*)0);
+
+	glBindVertexArray(0);
+
+	unsigned int vs = Utility::loadShader("shaders/cloth.vert", GL_VERTEX_SHADER);
+	unsigned int fs = Utility::loadShader("shaders/cloth.frag", GL_FRAGMENT_SHADER);
+	const char* inputs[] = { "position", "texCoords" };
+	m_clothShader = Utility::createProgram(vs, 0, 0, 0, fs, 2, inputs);
+	glDeleteShader(vs);
+	glDeleteShader(fs);
+
+	//  load image data
+	int width = 0, height = 0, format = 0;
+	unsigned char* pixelData = stbi_load("images/crate.png",
+		&width, &height, &format, STBI_default);
+
+	printf("Width: %i Height: %i Format: %i\n", width, height, format);
+
+	// create OpenGL texture handle
+	glGenTextures(1, &m_clothTexture);
+	glBindTexture(GL_TEXTURE_2D, m_clothTexture);
+
+	// set pixel data for texture
+	glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixelData);
+
+	// set filtering
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	// clear bound texture state so we don't accidentally change it
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// delete pixel data here instead!
+	delete[] pixelData;
+
+	m_cloth = createCloth(clothPosition, m_clothVertexCount, m_clothIndexCount, m_clothPositions, indices);
+	g_PhysicsScene->addActor(*m_cloth);
+
+	// texture coords and indices no longer needed
+	delete[] clothTextureCoords;
+	delete[] indices;
+}
+
+void PhysXTutorials::updateCloth()
+{
+	PxClothReadData* data = m_cloth->lockClothReadData();
+	for (unsigned int i = 0; i < m_clothVertexCount; ++i)
+	{
+		m_clothPositions[i] = glm::vec3(data->particles[i].pos.x,
+			data->particles[i].pos.y,
+			data->particles[i].pos.z);
+	}
+	data->unlock();
+}
+
+void PhysXTutorials::drawCloth(const glm::mat4& a_projectionMatrix, const glm::mat4& a_viewMatrix)
+{
+	// bind shader and transforms, along with texture
+	glUseProgram(m_clothShader);
+
+	int location = glGetUniformLocation(m_clothShader, "projectionView");
+	glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(a_projectionMatrix * a_viewMatrix));
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, m_clothTexture);
+
+	// update vertex positions from the cloth
+	glBindBuffer(GL_ARRAY_BUFFER, m_clothVBO);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, m_clothVertexCount * sizeof(glm::vec3), m_clothPositions);
+
+	// disable face culling so that we can draw it double-sided
+	glDisable(GL_CULL_FACE);
+
+	// bind and draw the cloth
+	glBindVertexArray(m_clothVAO);
+	glDrawElements(GL_TRIANGLES, m_clothIndexCount, GL_UNSIGNED_INT, 0);
+
+	glEnable(GL_CULL_FACE);
+}
+
+void PhysXTutorials::destroyCloth()
+{
+	glDeleteVertexArrays(1, &m_clothVAO);
+	glDeleteBuffers(1, &m_clothVBO);
+	glDeleteBuffers(1, &m_clothTextureVBO);
+	glDeleteBuffers(1, &m_clothIBO);
+	glDeleteTextures(1, &m_clothTexture);
+	glDeleteProgram(m_clothShader);
+}
+
 void PhysXTutorials::tutorial_3()
 {
-	PxTransform pose = PxTransform(PxVec3(-375.0f, -5.0f, -375.0f));// , PxQuat(PxHalfPi * 1, PxVec3(0.0f, 0.0f, 1.0f)));
+	PxTransform pose = PxTransform(PxVec3(-750.0f, 0.0f, -750.0f));// , PxQuat(PxHalfPi * 1, PxVec3(0.0f, 0.0f, 1.0f)));
 	addStaticHeightMapCollision(pose);
 	/*PxRigidStatic* plane = PxCreateStatic(*g_Physics, pose, PxPlaneGeometry(), *g_PhysicsMaterial);
 	//add it to the physX scene
@@ -1102,56 +1345,55 @@ void PhysXTutorials::tutorial_3()
 	g_PhysXActors.push_back(plane);/**/
 
 	FBXFile* fbxFile = new FBXFile();
-	fbxFile->load("./models/tanks/battle_tank.fbx", FBXFile::UNITS_METER);
+	fbxFile->load("./models/tanks/battle_tank.fbx", FBXFile::UNITS_DECIMETER);
 	fbxFile->initialiseOpenGLTextures();
 	InitFBXSceneResource(fbxFile);
 
-	addFBXWithConvexCollision(fbxFile, PxTransform(PxVec3(0, 0, 0)));
+	//m_playerActor = addFBXWithConvexCollision(fbxFile, PxTransform(PxVec3(0, 0, 0)));
 
-	/*
+	
 	float density = 10;
 	//create our first box for the tank body
-	PxBoxGeometry box(1, 0.35, 1.6);
-	PxTransform transform(PxVec3(0, 0, 0));
-	PxRigidDynamic* dynamicActor = PxCreateDynamic(*g_Physics, transform, box, *g_PhysicsMaterial, density);
+	PxBoxGeometry box(10, 3.5, 16);
+	PxTransform transform(PxVec3(0, 15, 0));
+	m_playerActor = PxCreateDynamic(*g_Physics, transform, box, *g_PhysicsMaterial, density);
 
 	//reposition the first box so it's in the right place
 	//find out how many shapes are in the actor
-	const PxU32 numShapes = dynamicActor->getNbShapes();
+	const PxU32 numShapes = m_playerActor->getNbShapes();
 	//reserve space for them
 	PxShape** shapes = (PxShape**)_aligned_malloc(sizeof(PxShape*)*numShapes, 16);
 	//get them into our buffer
-	dynamicActor->getShapes(shapes, numShapes);
+	m_playerActor->getShapes(shapes, numShapes);
 	//reset the local transform for the first one (our box)
-	shapes[0]->setLocalPose(PxTransform(PxVec3(0, 0.35, -0.125))); //reposition it
+	shapes[0]->setLocalPose(PxTransform(PxVec3(0, 3.5, -1.25))); //reposition it
 	//give it a name
 	shapes[0]->setName("Tank hull");
 
 	//create our second box for the turret
-	PxBoxGeometry turret(0.8, 0.2, 0.8);
-	PxTransform turretPose = PxTransform(PxVec3(0.0f, 0.925f, -0.3f));
-	PxShape* actor = dynamicActor->createShape(turret, *g_PhysicsMaterial, turretPose);
+	PxBoxGeometry turret(8, 2, 8);
+	PxTransform turretPose = PxTransform(PxVec3(0.0f, 9.25f, -3));
+	PxShape* actor = m_playerActor->createShape(turret, *g_PhysicsMaterial, turretPose);
 	actor->setName("Tank turret");
 
-	PxCapsuleGeometry fuelTank(0.175, 0.5);
-	PxTransform fuelTankPose = PxTransform(PxVec3(0.0f, 0.775f, -1.9f));
-	actor = dynamicActor->createShape(fuelTank, *g_PhysicsMaterial, fuelTankPose);
+	PxCapsuleGeometry fuelTank(1.75, 5);
+	PxTransform fuelTankPose = PxTransform(PxVec3(0.0f, 7.75f, -19));
+	actor = m_playerActor->createShape(fuelTank, *g_PhysicsMaterial, fuelTankPose);
 	actor->setName("Tank gun barrel");
 
-	PxCapsuleGeometry gunBarrel(0.05, 1.0625);
-	PxTransform gunBarrelPose = PxTransform(PxVec3(0.015f, 0.84375f, 1.6125f), PxQuat(PxHalfPi, PxVec3(0, 1, 0)));
-	actor = dynamicActor->createShape(gunBarrel, *g_PhysicsMaterial, gunBarrelPose);
+	PxCapsuleGeometry gunBarrel(0.5, 10.625);
+	PxTransform gunBarrelPose = PxTransform(PxVec3(0.15f, 8.4375f, 16.125f), PxQuat(PxHalfPi, PxVec3(0, 1, 0)));
+	actor = m_playerActor->createShape(gunBarrel, *g_PhysicsMaterial, gunBarrelPose);
 	actor->setName("Tank fuel tank");
 
 	//add the actor to the PhysX scene
-	g_PhysicsScene->addActor(*dynamicActor);
+	g_PhysicsScene->addActor(*m_playerActor);
 	//add it to our copy of the scene
-	g_PhysXActors.push_back(dynamicActor);
+	g_PhysXActors.push_back(m_playerActor);
 	//create a scene node
 	SceneNode* sceneNode = new SceneNode();
 	sceneNode->fbxFile = fbxFile; //set up the FBXFile
-	sceneNode->physXActor = dynamicActor; //link our scene node to the physics Object
+	sceneNode->physXActor = m_playerActor; //link our scene node to the physics Object
 	m_sceneNodes.push_back(sceneNode); //add it to the scene graph
-	dynamicActor->userData = (void*)sceneNode;  //Link the dynamic actor to the scene node
-	/**/
+	m_playerActor->userData = (void*)sceneNode;  //Link the dynamic actor to the scene node
 }

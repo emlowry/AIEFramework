@@ -86,10 +86,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="models\tanks\battle_tank.fbx" />
+    <None Include="shaders\cloth.frag" />
+    <None Include="shaders\cloth.vert" />
     <None Include="shaders\shader.frag" />
     <None Include="shaders\shader.vert" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="images\crate.png" />
     <Image Include="models\tanks\Battle_tank_diffuse.tga" />
     <Image Include="models\tanks\Battle_tank_Gloss.tga" />
     <Image Include="models\tanks\Battle_tank_Normals.tga" />
