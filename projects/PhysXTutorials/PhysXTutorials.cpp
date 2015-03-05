@@ -105,6 +105,21 @@ public:
 	MycollisionCallBack(Callback a_reset) : m_reset(a_reset) {}
 };
 
+
+glm::mat4 Px2Glm(const PxMat44& a_m)
+{
+	return glm::mat4(a_m.column0.x, a_m.column0.y, a_m.column0.z, a_m.column0.w,
+		a_m.column1.x, a_m.column1.y, a_m.column1.z, a_m.column1.w,
+		a_m.column2.x, a_m.column2.y, a_m.column2.z, a_m.column2.w,
+		a_m.column3.x, a_m.column3.y, a_m.column3.z, a_m.column3.w);
+}
+
+glm::vec3 Px2GlV3(const PxVec3& a_v)
+{
+	return glm::vec3(a_v.x, a_v.y, a_v.z);
+}
+
+
 PhysXTutorials::PhysXTutorials()
 {
 
@@ -556,17 +571,17 @@ PxRigidStatic* PhysXTutorials::addStaticHeightMapCollision(PxTransform transform
 {
 	unsigned int numRows = 150;
 	unsigned int numCols = 150;
-	float heightScale = .0012f;
-	float rowScale = 10;
-	float colScale = 10;
+	float heightScale = .0006f;
+	float rowScale = 5;
+	float colScale = 5;
 	glm::vec3 center = Px2GlV3(transform.p);
 	PxHeightFieldSample* samples = (PxHeightFieldSample*)_aligned_malloc(sizeof(PxHeightFieldSample)*(numRows*numCols), 16);
 	bool enabled = true;
 	//make height map
 	PxHeightFieldSample* samplePtr = samples;
-	for (int row = 0; row<numRows; ++row)
+	for (unsigned int row = 0; row<numRows; ++row)
 	{
-		for (int col = 0; col<numCols; ++col)
+		for (unsigned int col = 0; col<numCols; ++col)
 		{
 			float height = sin(row / 10.0f) * cos(col / 10.0f);
 			samplePtr->height = height * 30000.0f;
@@ -587,6 +602,7 @@ PxRigidStatic* PhysXTutorials::addStaticHeightMapCollision(PxTransform transform
 	PxHeightFieldGeometry hfGeom(aHeightField, PxMeshGeometryFlags(), heightScale, rowScale, colScale);
 	PxRigidStatic* staticObject = PxCreateStatic(*g_Physics, transform, (PxHeightFieldGeometry)hfGeom, *g_PhysicsMaterial);
 	g_PhysicsScene->addActor(*staticObject);
+	g_PhysXActors.push_back(staticObject);
 	return staticObject;
 }
 
@@ -765,19 +781,6 @@ void PhysXTutorials::addPlane(PxShape* pShape, PxActor* actor)
 	Gizmos::addGrid(position, 100, 1.0f, glm::vec4(0, 1, 0, 1), &M);
 }
 
-glm::mat4 Px2Glm(const PxMat44& a_m)
-{
-	return glm::mat4(a_m.column0.x, a_m.column0.y, a_m.column0.z, a_m.column0.w,
-					 a_m.column1.x, a_m.column1.y, a_m.column1.z, a_m.column1.w,
-					 a_m.column2.x, a_m.column2.y, a_m.column2.z, a_m.column2.w,
-					 a_m.column3.x, a_m.column3.y, a_m.column3.z, a_m.column3.w);
-}
-
-glm::vec3 Px2GlV3(const PxVec3& a_v)
-{
-	return glm::vec3(a_v.x, a_v.y, a_v.z);
-}
-
 void PhysXTutorials::addCapsule(PxShape* pShape, PxActor* actor)
 {
 	//creates a gizmo representation of a capsule using 2 spheres and a cylinder
@@ -813,9 +816,11 @@ void PhysXTutorials::addCapsule(PxShape* pShape, PxActor* actor)
 	Gizmos::addCylinderFilled(position, radius, halfHeight, 10, colour, &m2);
 }
 
-void addHeightField(PxShape* pShape, PxActor* actor)
+void PhysXTutorials::addHeightField(PxShape* pShape, PxActor* actor)
 {
 	glm::vec4 colour(0, 1, 0, 1);
+
+	// get height field information
 	PxHeightFieldGeometry heightFieldGeometry;
 	bool status = pShape->getHeightFieldGeometry(heightFieldGeometry);
 	unsigned int rows = 0;
@@ -834,13 +839,6 @@ void addHeightField(PxShape* pShape, PxActor* actor)
 		samples = (PxHeightFieldSample*)_aligned_malloc(size, 16);
 		heightField->saveCells((void*)samples, size);
 	}
-	for (unsigned int row = 0; row < rows - 1; ++row)
-	{
-		for (unsigned int col = 0; col < columns - 1; ++col)
-		{
-			glm::vec3 topLeft(//TODO
-		}
-	}
 
 	//get the world transform for the centre of this PhysX collision volume
 	PxTransform transform = PxShapeExt::getGlobalPose(*pShape);
@@ -849,7 +847,47 @@ void addHeightField(PxShape* pShape, PxActor* actor)
 	//convert it to an open gl matrix for adding our gizmos
 	glm::mat4 M = Px2Glm(m);
 	//get the world position from the PhysX tranform
-	glm::vec3 position = Px2GlV3(transform.p);
+	//glm::vec3 position = Px2GlV3(transform.p);
+
+	// generate points
+	typedef std::pair<glm::vec3, glm::vec3> line;
+	std::vector<std::pair<glm::vec3, glm::vec3>> lines;
+	glm::vec3* points = new glm::vec3[rows*columns];
+	bool* flags = new bool[rows*columns];
+	for (unsigned int row = 0; row < rows; ++row)
+	{
+		for (unsigned int col = 0; col < columns; ++col)
+		{
+			unsigned int index = row*columns + col;
+			points[index] = (M * glm::vec4(glm::vec3(row, samples[index].height, col) * scale, 1)).xyz();
+			flags[index] = samples[index].tessFlag();
+		}
+	}
+	_aligned_free((void*)samples);
+
+	// draw lines
+	for (unsigned int row = 0; row < rows - 1; ++row)
+	{
+		for (unsigned int col = 0; col < columns - 1; ++col)
+		{
+			unsigned int topLeft = row*columns + col;
+			unsigned int topRight = topLeft + 1;
+			unsigned int bottomLeft = topLeft + columns;
+			unsigned int bottomRight = bottomLeft + 1;
+			if (0 == row)
+				Gizmos::addLine(points[topLeft], points[topRight], colour);
+			if (0 == col)
+				Gizmos::addLine(points[topLeft], points[bottomLeft], colour);
+			if (flags[topLeft])
+				Gizmos::addLine(points[topLeft], points[bottomRight], colour);
+			else
+				Gizmos::addLine(points[bottomLeft], points[topRight], colour);
+			Gizmos::addLine(points[bottomLeft], points[bottomRight], colour);
+			Gizmos::addLine(points[topRight], points[bottomRight], colour);
+		}
+	}
+	delete[] points;
+	delete[] flags;
 }
 
 void PhysXTutorials::fire()
@@ -1054,20 +1092,21 @@ void PhysXTutorials::addPlatforms()
 
 void PhysXTutorials::tutorial_3()
 {
-	PxTransform pose = PxTransform(PxVec3(0.0f, 0, 0.0f), PxQuat(PxHalfPi * 1, PxVec3(0.0f, 0.0f, 1.0f)));
-	PxRigidStatic* plane = PxCreateStatic(*g_Physics, pose, PxPlaneGeometry(), *g_PhysicsMaterial);
+	PxTransform pose = PxTransform(PxVec3(-375.0f, -5.0f, -375.0f));// , PxQuat(PxHalfPi * 1, PxVec3(0.0f, 0.0f, 1.0f)));
+	addStaticHeightMapCollision(pose);
+	/*PxRigidStatic* plane = PxCreateStatic(*g_Physics, pose, PxPlaneGeometry(), *g_PhysicsMaterial);
 	//add it to the physX scene
 	g_PhysicsScene->addActor(*plane);
 	plane->setName("Ground");
 	//add it to our copy of the scene
-	g_PhysXActors.push_back(plane);
+	g_PhysXActors.push_back(plane);/**/
 
 	FBXFile* fbxFile = new FBXFile();
 	fbxFile->load("./models/tanks/battle_tank.fbx", FBXFile::UNITS_METER);
 	fbxFile->initialiseOpenGLTextures();
 	InitFBXSceneResource(fbxFile);
 
-	addStaticFBXWithTriangleCollision(fbxFile, PxTransform(PxVec3(0, 0, 0)));
+	addFBXWithConvexCollision(fbxFile, PxTransform(PxVec3(0, 0, 0)));
 
 	/*
 	float density = 10;
