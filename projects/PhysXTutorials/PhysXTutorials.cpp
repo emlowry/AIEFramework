@@ -89,8 +89,9 @@ struct FilterGroup
 	enum Enum
 	{
 		ePLAYER = (1 << 0),
-		ePLATFORM = (1 << 1),
-		eGROUND = (1 << 2)
+		eGROUND = (1 << 1),
+		ePLATFORM = (1 << 2),
+		eOBJECT = (1 << 3),
 	};
 };
 
@@ -115,53 +116,70 @@ void setupFiltering(PxRigidActor* actor, PxU32 filterGroup, PxU32 filterMask)
 //derived class to overide the call backs we are interested in...
 class MycollisionCallBack : public PxSimulationEventCallback
 {
-	typedef std::function<void(void)> Callback;
+public:
+
+	typedef std::function<void(PxActor*, PxActor*)> CollisionCallback;
+	typedef std::function<void(PxShape*, PxShape*)> TriggerCallback;
+
+	MycollisionCallBack(CollisionCallback a_onCollide = DoNothingOnCollision,
+						TriggerCallback a_onTrigger = DoNothingOnTrigger)
+		: m_onCollide(a_onCollide), m_onTrigger(a_onTrigger) {}
+
+	static void DoNothingOnCollision(PxActor* a_actor1, PxActor* a_actor2) {}
+	static void DoNothingOnTrigger(PxActor* a_trigger, PxActor* a_other) {}
+
+protected:
+
 	virtual void MycollisionCallBack::onContact(const PxContactPairHeader& pairHeader, const PxContactPair* pairs, PxU32 nbPairs)
 	{
-		bool reset = false;
 		for (PxU32 i = 0; i < nbPairs; i++)
 		{
 			const PxContactPair& cp = pairs[i];
 			if (cp.events & PxPairFlag::eNOTIFY_TOUCH_FOUND)
 			{
-				reset = true;
 				std::cout << "collision: " << pairHeader.actors[0]->getName() << " : " << pairHeader.actors[1]->getName() << std::endl;
+				m_onCollide(pairHeader.actors[0], pairHeader.actors[1]);
 			}
 		}
-		/*if (reset)
-			m_reset();/**/
 	}
-	//we have to create versions of the following functions even though we don't do anything with them...
 	virtual void    onTrigger(PxTriggerPair* pairs, PxU32 nbPairs)
 	{
-		bool reset = false;
 		for (PxU32 i = 0; i < nbPairs; i++)
 		{
 			const PxTriggerPair& cp = pairs[i];
 			if (cp.status & PxPairFlag::eNOTIFY_TOUCH_FOUND)
 			{
-				reset = true;
 				std::cout << "trigger ";
-				if (nullptr != cp.triggerShape && nullptr != cp.triggerShape->getName())
-					std::cout << cp.triggerShape->getName() << " ";
+				if (nullptr != cp.triggerShape && nullptr != cp.triggerShape->getActor().getName())
+				{
+					if (nullptr != cp.triggerShape->getName())
+						std::cout << cp.triggerShape->getName();
+					else if (nullptr != cp.triggerShape->getActor().getName())
+						std::cout << cp.triggerShape->getActor().getName();
+					std::cout << " ";
+				}
 				std::cout << "tripped";
-				if (nullptr != cp.otherShape && nullptr != cp.otherShape->getName())
-					std::cout << " by " << cp.otherShape->getName();
+				if (nullptr != cp.otherShape && nullptr != cp.otherShape->getActor().getName())
+				{
+					std::cout << " by ";
+					if (nullptr != cp.otherShape->getName())
+						std::cout << cp.otherShape->getName();
+					else if (nullptr != cp.otherShape->getActor().getName())
+						std::cout << cp.otherShape->getActor().getName();
+				}
 				std::cout << std::endl;
+				m_onTrigger(cp.triggerShape, cp.otherShape);
 			}
 		}
-		if (reset)
-			m_reset();
 	};
+	//we have to create versions of the following functions even though we don't do anything with them...
 	virtual void	onConstraintBreak(PxConstraintInfo*, PxU32){};
 	virtual void	onWake(PxActor**, PxU32){};
 	virtual void	onSleep(PxActor**, PxU32){};
 
-	Callback m_reset;
+	CollisionCallback m_onCollide;
+	TriggerCallback m_onTrigger;
 
-public:
-
-	MycollisionCallBack(Callback a_reset) : m_reset(a_reset) {}
 };
 
 
@@ -301,17 +319,6 @@ void PhysXTutorials::onDestroy()
 	cleanUpPhysX();
 
 	glDeleteShader(m_shader);
-
-	for (auto node : m_sceneNodes)
-	{
-		DestroyFBXSceneResource(node->fbxFile);
-		node->fbxFile->unload();
-		delete node->fbxFile;
-		node->fbxFile = NULL;
-		delete node;
-	}
-	m_sceneNodes.clear();
-	m_playerActor = nullptr;
 
 	destroyCloth();
 }
@@ -468,8 +475,10 @@ void PhysXTutorials::setUpPhysX()
 		std::cout << "start physx scene2";
 	}
 
+	//instantiate our class to overload call backs
 	PxSimulationEventCallback* mycollisionCallBack =
-		new MycollisionCallBack([this] { this->reset(); });  //instantiate our class to overload call backs
+		new MycollisionCallBack(MycollisionCallBack::DoNothingOnCollision,
+								[this](PxShape* a_trigger, PxShape* a_other) { this->m_reset = true; });
 	g_PhysicsScene->setSimulationEventCallback(mycollisionCallBack); //tell the scene to use our call back class
 }
 
@@ -494,11 +503,30 @@ void PhysXTutorials::setUpVisualDebugger()
 void PhysXTutorials::cleanUpPhysX()
 {
 	g_PhysicsCooker->release();
+	clearScene();
 	g_PhysicsScene->release();
 	g_Physics->release();
 	g_PhysicsFoundation->release();
-	m_playerActor = nullptr;
+}
+
+void PhysXTutorials::clearScene()
+{
+	for (auto actor : g_PhysXActors)
+		g_PhysicsScene->removeActor(*actor);
 	g_PhysXActors.clear();
+	for (auto ragdoll : g_PhysXActorsRagDolls)
+		g_PhysicsScene->removeArticulation(*ragdoll);
+	g_PhysXActorsRagDolls.clear();
+	for (auto node : m_sceneNodes)
+	{
+		DestroyFBXSceneResource(node->fbxFile);
+		node->fbxFile->unload();
+		delete node->fbxFile;
+		node->fbxFile = NULL;
+		delete node;
+	}
+	m_sceneNodes.clear();
+	m_playerActor = nullptr;
 }
 
 void PhysXTutorials::updatePhysX()
@@ -507,6 +535,12 @@ void PhysXTutorials::updatePhysX()
 	while (g_PhysicsScene->fetchResults() == false)
 	{
 		// don’t need to do anything here yet but we still need to do the fetch
+	}
+	if (m_reset)
+	{
+		clearScene();
+		tutorial_3();
+		m_reset = false;
 	}
 
 	// Add widgets to represent all the phsyX actors which are in the scene
@@ -1425,15 +1459,16 @@ void PhysXTutorials::destroyCloth()
 
 void PhysXTutorials::tutorial_3()
 {
-	PxTransform pose = PxTransform(PxVec3(-750.0f, 0.0f, -750.0f));// , PxQuat(PxHalfPi * 1, PxVec3(0.0f, 0.0f, 1.0f)));
-	addStaticHeightMapCollision(pose);
-	/*PxRigidStatic* plane = PxCreateStatic(*g_Physics, pose, PxPlaneGeometry(), *g_PhysicsMaterial);
-	//add it to the physX scene
-	g_PhysicsScene->addActor(*plane);
-	plane->setName("Ground");
-	//add it to our copy of the scene
-	g_PhysXActors.push_back(plane);/**/
+	// create a world-space matrix for a camera
+	m_cameraMatrix = glm::inverse(glm::lookAt(glm::vec3(100, 100, 100), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0)));
 
+	// add Terrain
+	PxTransform pose = PxTransform(PxVec3(-750.0f, 0.0f, -750.0f));// , PxQuat(PxHalfPi * 1, PxVec3(0.0f, 0.0f, 1.0f)));
+	PxRigidStatic* ground = addStaticHeightMapCollision(pose);
+	ground->setName("Ground");
+	setupFiltering(ground, FilterGroup::eGROUND, 0);// , FilterGroup::eOBJECT | FilterGroup::ePLAYER);
+
+	// Add tank
 	FBXFile* fbxFile = new FBXFile();
 	fbxFile->load("./models/tanks/battle_tank.fbx", FBXFile::UNITS_DECIMETER);
 	fbxFile->initialiseOpenGLTextures();
@@ -1441,16 +1476,16 @@ void PhysXTutorials::tutorial_3()
 
 	//m_playerActor = addFBXWithConvexCollision(fbxFile, PxTransform(PxVec3(0, 0, 0)));
 
-	
 	float density = 10;
 	//create our first box for the tank body
 	PxBoxGeometry box(10, 3.5, 16);
-	PxTransform transform(PxVec3(0, 15, 0));
+	PxTransform transform(PxVec3(0, 12, 0), PxQuat(PxHalfPi / 5, PxVec3(1,0,0)));
 	m_playerActor = PxCreateDynamic(*g_Physics, transform, box, *g_PhysicsMaterial, density);
+	m_playerActor->setName("Tank");
 
 	//reposition the first box so it's in the right place
 	//find out how many shapes are in the actor
-	const PxU32 numShapes = m_playerActor->getNbShapes();
+	PxU32 numShapes = m_playerActor->getNbShapes();
 	//reserve space for them
 	PxShape** shapes = (PxShape**)_aligned_malloc(sizeof(PxShape*)*numShapes, 16);
 	//get them into our buffer
@@ -1459,22 +1494,25 @@ void PhysXTutorials::tutorial_3()
 	shapes[0]->setLocalPose(PxTransform(PxVec3(0, 3.5, -1.25))); //reposition it
 	//give it a name
 	shapes[0]->setName("Tank hull");
+	_aligned_free(shapes);
 
 	//create our second box for the turret
 	PxBoxGeometry turret(8, 2, 8);
 	PxTransform turretPose = PxTransform(PxVec3(0.0f, 9.25f, -3));
-	PxShape* actor = m_playerActor->createShape(turret, *g_PhysicsMaterial, turretPose);
-	actor->setName("Tank turret");
+	PxShape* shape = m_playerActor->createShape(turret, *g_PhysicsMaterial, turretPose);
+	shape->setName("Tank turret");
 
 	PxCapsuleGeometry fuelTank(1.75, 5);
 	PxTransform fuelTankPose = PxTransform(PxVec3(0.0f, 7.75f, -19));
-	actor = m_playerActor->createShape(fuelTank, *g_PhysicsMaterial, fuelTankPose);
-	actor->setName("Tank gun barrel");
+	shape = m_playerActor->createShape(fuelTank, *g_PhysicsMaterial, fuelTankPose);
+	shape->setName("Tank gun barrel");
 
 	PxCapsuleGeometry gunBarrel(0.5, 10.625);
 	PxTransform gunBarrelPose = PxTransform(PxVec3(0.15f, 8.4375f, 16.125f), PxQuat(PxHalfPi, PxVec3(0, 1, 0)));
-	actor = m_playerActor->createShape(gunBarrel, *g_PhysicsMaterial, gunBarrelPose);
-	actor->setName("Tank fuel tank");
+	shape = m_playerActor->createShape(gunBarrel, *g_PhysicsMaterial, gunBarrelPose);
+	shape->setName("Tank fuel tank");
+
+	setupFiltering(m_playerActor, FilterGroup::ePLAYER, 0);// FilterGroup::eGROUND | FilterGroup::eOBJECT);
 
 	//add the actor to the PhysX scene
 	g_PhysicsScene->addActor(*m_playerActor);
@@ -1487,14 +1525,32 @@ void PhysXTutorials::tutorial_3()
 	m_sceneNodes.push_back(sceneNode); //add it to the scene graph
 	m_playerActor->userData = (void*)sceneNode;  //Link the dynamic actor to the scene node
 
-	//create first ragdoll
-	PxArticulation* ragDollArticulation = makeRagdoll(ragdollData, PxTransform(PxVec3(0, 11, 50)), .5f);
+	//create a ragdoll
+	PxArticulation* ragDollArticulation =
+		makeRagdoll(ragdollData, PxTransform(PxVec3(0, 11, 50)), .5f,
+		FilterGroup::eOBJECT, 0);// FilterGroup::eGROUND | FilterGroup::ePLAYER);
 	g_PhysicsScene->addArticulation(*ragDollArticulation);
 	g_PhysXActorsRagDolls.push_back(ragDollArticulation);
+
+	//create trigger
+	PxBoxGeometry goalBox(PxVec3(5, 5, 5));
+	PxTransform goalPosition(PxVec3(0, -10, 100));
+	PxRigidActor* goalActor = PxCreateStatic(*g_Physics, goalPosition, goalBox, *g_PhysicsMaterial);
+	goalActor->setName("Goal");
+	setupFiltering(goalActor, FilterGroup::eOBJECT, FilterGroup::eOBJECT);// FilterGroup::eGROUND | FilterGroup::ePLAYER);
+	numShapes = goalActor->getNbShapes();
+	shapes = (PxShape**)_aligned_malloc(sizeof(PxShape*)*numShapes, 16);
+	goalActor->getShapes(shapes, numShapes);
+	shapes[0]->setFlag(PxShapeFlag::eSIMULATION_SHAPE, false);
+	shapes[0]->setFlag(PxShapeFlag::eTRIGGER_SHAPE, true);
+	_aligned_free(shapes);
+	g_PhysicsScene->addActor(*goalActor);
+	g_PhysXActors.push_back(goalActor);
 }
 
 //make a ragdoll using an articulations
-PxArticulation* PhysXTutorials::makeRagdoll(RagdollNode** nodeArray, PxTransform worldPos, float scaleFactor)
+PxArticulation* PhysXTutorials::makeRagdoll(RagdollNode** nodeArray, PxTransform worldPos, float scaleFactor,
+											PxU32 filterGroup, PxU32 filterMask, const char* name)
 {
 
 	//create the articulation for our ragdoll
@@ -1538,6 +1594,18 @@ PxArticulation* PhysXTutorials::makeRagdoll(RagdollNode** nodeArray, PxTransform
 		PxTransform linkTransform = PxTransform(currentNodePtr->scaledGobalPos, currentNodePtr->globalRotation);
 		//create the link in the articulation
 		PxArticulationLink* link = articulation->createLink(parentLinkPtr, linkTransform);
+		setupFiltering(link, filterGroup, filterMask);
+
+		const char* baseName = (nullptr == name || 0 == strcmp(name, "") ? "ragdoll" : name);
+		unsigned int baseNameSize = strlen(baseName);
+		unsigned int nameSize = baseNameSize + strlen(currentNodePtr->name) + 2;
+		char* combinedName = new char[nameSize];
+		strcpy(combinedName, baseName);
+		combinedName[baseNameSize] = ':';
+		strcpy(combinedName + baseNameSize + 1, currentNodePtr->name);
+		combinedName[nameSize - 1] = '\0';
+		link->setName(combinedName);
+		delete[] combinedName;
 
 		//add the pointer to this link into the ragdoll data so we have it for later when we want to link to it
 		currentNodePtr->linkPtr = link;

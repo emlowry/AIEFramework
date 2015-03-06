@@ -46,7 +46,7 @@ struct RagdollNode
 	RagdollNode(PxQuat _globalRotation, int _parentNodeIdx, float _halfLength, float _radius,
 		float _parentLinkPos, float _childLinkPos, char* _name)
 		: globalRotation(_globalRotation), parentNodeIdx(_parentNodeIdx), halfLength(_halfLength),
-		radius(_radius), parentLinkPos(_parentLinkPos), childLinkPos(_childLinkPos), name(_name) {}
+		  radius(_radius), parentLinkPos(_parentLinkPos), childLinkPos(_childLinkPos), name(_name) {}
 };
 
 // derived application class that wraps up all globals neatly
@@ -100,12 +100,14 @@ protected:
 
 	void fire();
 	void reset();
+	void clearScene();
 
 	void tutorial_1();
 	void tutorial_2();
 	void tutorial_3();
 
-	PxArticulation* makeRagdoll(RagdollNode** nodeArray, PxTransform worldPos, float scaleFactor);
+	PxArticulation* makeRagdoll(RagdollNode** nodeArray, PxTransform worldPos, float scaleFactor,
+								PxU32 filterGroup, PxU32 filterMask, const char* name = nullptr);
 
 	float m_lastFireTime = 0.0f;
 
@@ -124,6 +126,8 @@ protected:
 
 	//very simple scene graph
 	std::vector<SceneNode*> m_sceneNodes;
+
+	bool m_reset = false;
 
 	PxCloth*		m_cloth;
 
