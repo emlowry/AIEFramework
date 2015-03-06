@@ -22,6 +22,33 @@ struct SceneNode
 	glm::mat4 transform; //the nodes transform
 };
 
+struct RagdollNode
+{
+	PxQuat globalRotation;  //rotation of this link in model space - we could have done this
+							// relative to the parent node but it's harder to visualize when setting
+							// up the data by hand
+	PxVec3 scaledGobalPos;	//Position of the link centre in world space which is calculated when we
+							// process the node.  It's easiest if we store it here so we have it
+							// when we transform the child
+	int parentNodeIdx;	//Index of the parent node
+	float halfLength;	//half length of the capsule for this node
+	float radius;	//radius of capsule for thisndoe
+	float parentLinkPos;	//relative position of link centre in parent to this node.  0 is the
+							// centre of hte node, -1 is left end of capsule and 1 is right end of
+							// capsule relative to x 
+	float childLinkPos;	//relative position of link centre in child
+	char* name;	//name of link
+	PxArticulationLink* linkPtr;	//pointer to link if we are using articulation
+	PxRigidDynamic* actorPtr;	//Pointer the PhysX actor which is linked to this node if we are
+								// using seperate actors
+
+	//constructor
+	RagdollNode(PxQuat _globalRotation, int _parentNodeIdx, float _halfLength, float _radius,
+		float _parentLinkPos, float _childLinkPos, char* _name)
+		: globalRotation(_globalRotation), parentNodeIdx(_parentNodeIdx), halfLength(_halfLength),
+		radius(_radius), parentLinkPos(_parentLinkPos), childLinkPos(_childLinkPos), name(_name) {}
+};
+
 // derived application class that wraps up all globals neatly
 class PhysXTutorials : public Application
 {
@@ -77,6 +104,8 @@ protected:
 	void tutorial_1();
 	void tutorial_2();
 	void tutorial_3();
+
+	PxArticulation* makeRagdoll(RagdollNode** nodeArray, PxTransform worldPos, float scaleFactor);
 
 	float m_lastFireTime = 0.0f;
 

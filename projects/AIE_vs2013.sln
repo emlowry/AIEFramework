@@ -45,6 +45,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PhysXTutorials", "PhysXTuto
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Physics2D", "Physics2D\Physics2D.vcxproj", "{2FA70EB6-F742-40E9-B13B-5C0B3FBA41A6}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Ragdoll", "Ragdoll tutorial\ragdoll.vcxproj", "{32A8CE23-31F3-463F-A691-5C4E429342DA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -135,6 +137,10 @@ Global
 		{2FA70EB6-F742-40E9-B13B-5C0B3FBA41A6}.Debug|Win32.Build.0 = Debug|Win32
 		{2FA70EB6-F742-40E9-B13B-5C0B3FBA41A6}.Release|Win32.ActiveCfg = Release|Win32
 		{2FA70EB6-F742-40E9-B13B-5C0B3FBA41A6}.Release|Win32.Build.0 = Release|Win32
+		{32A8CE23-31F3-463F-A691-5C4E429342DA}.Debug|Win32.ActiveCfg = Debug|Win32
+		{32A8CE23-31F3-463F-A691-5C4E429342DA}.Debug|Win32.Build.0 = Debug|Win32
+		{32A8CE23-31F3-463F-A691-5C4E429342DA}.Release|Win32.ActiveCfg = Release|Win32
+		{32A8CE23-31F3-463F-A691-5C4E429342DA}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

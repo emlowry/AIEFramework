@@ -1,6 +1,5 @@
 #include "PhysXTutorials.h"
 #include "PxToolkit.h"
-//#include "PxTkStream.h"
 #include "Gizmos.h"
 #include "Utilities.h"
 #include <GL/glew.h>
@@ -26,6 +25,64 @@ PxSimulationFilterShader gDefaultFilterShader = PxDefaultSimulationFilterShader;
 PxMaterial* g_PhysicsMaterial = nullptr;
 PxCooking* g_PhysicsCooker = nullptr;
 std::vector<PxRigidActor*> g_PhysXActors;
+std::vector<PxArticulation*> g_PhysXActorsRagDolls;
+
+//create some constants for axis of rotation to make definition of quaternions a bit neater
+const PxVec3 X_AXIS = PxVec3(1, 0, 0);
+const PxVec3 Y_AXIS = PxVec3(0, 1, 0);
+const PxVec3 Z_AXIS = PxVec3(0, 0, 1);
+
+//Parts which make up our ragdoll
+enum RagDollParts
+{
+	NO_PARENT = -1,
+	LOWER_SPINE,
+	LEFT_PELVIS,
+	RIGHT_PELVIS,
+	LEFT_UPPER_LEG,
+	RIGHT_UPPER_LEG,
+	LEFT_LOWER_LEG,
+	RIGHT_LOWER_LEG,
+	LEFT_FOOT,
+	RIGHT_FOOT,
+	UPPER_SPINE,
+	LEFT_CLAVICLE,
+	RIGHT_CLAVICLE,
+	NECK,
+	HEAD,
+	LEFT_UPPER_ARM,
+	RIGHT_UPPER_ARM,
+	LEFT_LOWER_ARM,
+	RIGHT_LOWER_ARM,
+	LEFT_HAND,
+	RIGHT_HAND,
+};
+
+//complex humanoid ragdoll example
+RagdollNode* ragdollData[] =
+{
+	new RagdollNode(PxQuat(PxPi / 2.0f, Z_AXIS), NO_PARENT, 1, 3, 1, 1, "lower spine"),
+	new RagdollNode(PxQuat(PxPi, Z_AXIS), LOWER_SPINE, 1, 1, -1, 1, "left pelvis"),
+	new RagdollNode(PxQuat(0, Z_AXIS), LOWER_SPINE, 1, 1, -1, 1, "right pelvis"),
+	new RagdollNode(PxQuat(PxPi / 2.0f + 0.2f, Z_AXIS), LEFT_PELVIS, 5, 2, -1, 1, "left upper leg"),
+	new RagdollNode(PxQuat(PxPi / 2.0f - 0.2f, Z_AXIS), RIGHT_PELVIS, 5, 2, -1, 1, "right upper leg"),
+	new RagdollNode(PxQuat(PxPi / 2.0f + 0.2f, Z_AXIS), LEFT_UPPER_LEG, 5, 1.75, -1, 1, "left lower leg"),
+	new RagdollNode(PxQuat(PxPi / 2.0f - 0.2f, Z_AXIS), RIGHT_UPPER_LEG, 5, 1.75, -1, 1, "right lower leg"),
+	new RagdollNode(PxQuat(PxPi / 2.0f, Y_AXIS), LEFT_LOWER_LEG, 1.5, 1.5, -1, 1, "left foot"),
+	new RagdollNode(PxQuat(PxPi / 2.0f, Y_AXIS), RIGHT_LOWER_LEG, 1.5, 1.5, -1, 1, "right foot"),
+	new RagdollNode(PxQuat(PxPi / 2.0f, Z_AXIS), LOWER_SPINE, 1, 3, 1, -1, "upper spine"),
+	new RagdollNode(PxQuat(PxPi, Z_AXIS), UPPER_SPINE, 1, 1.5, 1, 1, "left clavicle"),
+	new RagdollNode(PxQuat(0, Z_AXIS), UPPER_SPINE, 1, 1.5, 1, 1, "right clavicle"),
+	new RagdollNode(PxQuat(PxPi / 2.0f, Z_AXIS), UPPER_SPINE, 1, 1, 1, -1, "neck"),
+	new RagdollNode(PxQuat(PxPi / 2.0f, Z_AXIS), NECK, 1, 3, 1, -1, "HEAD"),
+	new RagdollNode(PxQuat(PxPi - .3, Z_AXIS), LEFT_CLAVICLE, 3, 1.5, -1, 1, "left upper arm"),
+	new RagdollNode(PxQuat(0.3, Z_AXIS), RIGHT_CLAVICLE, 3, 1.5, -1, 1, "right upper arm"),
+	new RagdollNode(PxQuat(PxPi - .3, Z_AXIS), LEFT_UPPER_ARM, 3, 1, -1, 1, "left lower arm"),
+	new RagdollNode(PxQuat(0.3, Z_AXIS), RIGHT_UPPER_ARM, 3, 1, -1, 1, "right lower arm"),
+	new RagdollNode(PxQuat(PxPi - .3, Z_AXIS), LEFT_LOWER_ARM, 1.0f, 1.5, -1, 1, "left hand"),
+	new RagdollNode(PxQuat(0.3, Z_AXIS), RIGHT_LOWER_ARM, 1.0f, 1.5, -1, 1, "right hand"),
+	NULL
+};
 
 struct FilterGroup
 {
@@ -184,7 +241,7 @@ bool PhysXTutorials::onCreate(int a_argc, char* a_argv[])
 void PhysXTutorials::onUpdate(float a_deltaTime) 
 {
 	// update our camera matrix using the keyboard/mouse
-	Utility::freeMovement( m_cameraMatrix, a_deltaTime, 10 );
+	Utility::freeMovement( m_cameraMatrix, a_deltaTime, 50 );
 
 	// clear all gizmos from last frame
 	Gizmos::clear();
@@ -403,6 +460,8 @@ void PhysXTutorials::setUpPhysX()
 	sceneDesc.filterShader = myFliterShader;
 	sceneDesc.cpuDispatcher = PxDefaultCpuDispatcherCreate(1);
 	g_PhysicsScene = g_Physics->createScene(sceneDesc);
+	g_PhysicsScene->setVisualizationParameter(PxVisualizationParameter::eJOINT_LIMITS, 1.0f);
+	g_PhysicsScene->setVisualizationParameter(PxVisualizationParameter::eJOINT_LIMITS, 1.0f);
 
 	if (g_PhysicsScene)
 	{
@@ -462,6 +521,28 @@ void PhysXTutorials::updatePhysX()
 			addWidget(shapes[nShapes], actor);
 		}
 		delete[] shapes;
+	}
+
+	for (auto articulation : g_PhysXActorsRagDolls)
+	{
+		{
+			PxU32 nLinks = articulation->getNbLinks();
+			PxArticulationLink** links = new PxArticulationLink*[nLinks];
+			articulation->getLinks(links, nLinks);
+			// Render all the shapes in the physx actor (for early tutorials there is just one)
+			while (nLinks--)
+			{
+				PxArticulationLink* link = links[nLinks];
+				PxU32 nShapes = link->getNbShapes();
+				PxShape** shapes = new PxShape*[nShapes];
+				link->getShapes(shapes, nShapes);
+				while (nShapes--)
+				{
+					addWidget(shapes[nShapes], link);
+				}
+			}
+			delete[] links;
+		}
 	}
 }
 
@@ -833,7 +914,8 @@ void PhysXTutorials::addCapsule(PxShape* pShape, PxActor* actor)
 
 void PhysXTutorials::addHeightField(PxShape* pShape, PxActor* actor)
 {
-	glm::vec4 colour(0, 1, 0, 1);
+	glm::vec4 stroke(1);
+	glm::vec4 fill(0, 1, 0, 0.75);
 
 	// get height field information
 	PxHeightFieldGeometry heightFieldGeometry;
@@ -890,15 +972,23 @@ void PhysXTutorials::addHeightField(PxShape* pShape, PxActor* actor)
 			unsigned int bottomLeft = topLeft + columns;
 			unsigned int bottomRight = bottomLeft + 1;
 			if (0 == row)
-				Gizmos::addLine(points[topLeft], points[topRight], colour);
+				Gizmos::addLine(points[topLeft], points[topRight], stroke);
 			if (0 == col)
-				Gizmos::addLine(points[topLeft], points[bottomLeft], colour);
+				Gizmos::addLine(points[topLeft], points[bottomLeft], stroke);
 			if (flags[topLeft])
-				Gizmos::addLine(points[topLeft], points[bottomRight], colour);
+			{
+				Gizmos::addLine(points[topLeft], points[bottomRight], stroke);
+				Gizmos::addTri(points[topLeft], points[bottomRight], points[bottomLeft], fill);
+				Gizmos::addTri(points[bottomRight], points[topLeft], points[topRight], fill);
+			}
 			else
-				Gizmos::addLine(points[bottomLeft], points[topRight], colour);
-			Gizmos::addLine(points[bottomLeft], points[bottomRight], colour);
-			Gizmos::addLine(points[topRight], points[bottomRight], colour);
+			{
+				Gizmos::addLine(points[bottomLeft], points[topRight], stroke);
+				Gizmos::addTri(points[bottomLeft], points[topRight], points[bottomRight], fill);
+				Gizmos::addTri(points[topRight], points[bottomLeft], points[topLeft], fill);
+			}
+			Gizmos::addLine(points[bottomLeft], points[bottomRight], stroke);
+			Gizmos::addLine(points[topRight], points[bottomRight], stroke);
 		}
 	}
 	delete[] points;
@@ -1396,4 +1486,93 @@ void PhysXTutorials::tutorial_3()
 	sceneNode->physXActor = m_playerActor; //link our scene node to the physics Object
 	m_sceneNodes.push_back(sceneNode); //add it to the scene graph
 	m_playerActor->userData = (void*)sceneNode;  //Link the dynamic actor to the scene node
+
+	//create first ragdoll
+	PxArticulation* ragDollArticulation = makeRagdoll(ragdollData, PxTransform(PxVec3(0, 11, 50)), .5f);
+	g_PhysicsScene->addArticulation(*ragDollArticulation);
+	g_PhysXActorsRagDolls.push_back(ragDollArticulation);
+}
+
+//make a ragdoll using an articulations
+PxArticulation* PhysXTutorials::makeRagdoll(RagdollNode** nodeArray, PxTransform worldPos, float scaleFactor)
+{
+
+	//create the articulation for our ragdoll
+	PxArticulation *articulation = g_Physics->createArticulation();
+	PxMaterial* ragdollMaterial = g_Physics->createMaterial(0.4f, 0.4f, 1.0f);
+	RagdollNode** currentNode = nodeArray;
+	//while there are more nodes to process...
+	while (*currentNode != NULL)
+	{
+		//get a pointer to the current node
+		RagdollNode* currentNodePtr = *currentNode;
+		//create a pointer ready to hold the parent node pointer if there is one
+		RagdollNode* parentNode;
+		//get scaled values for capsule
+		float radius = currentNodePtr->radius*scaleFactor;
+		float halfLength = currentNodePtr->halfLength*scaleFactor;
+		float childHalfLength = radius + halfLength;
+		float parentHalfLength;
+
+		//copy the parentIDX
+		int parentIdx = currentNodePtr->parentNodeIdx;
+		//get a pointer to the parent
+		PxArticulationLink* parentLinkPtr = NULL;
+		currentNodePtr->scaledGobalPos = worldPos.p;  //set this to world pos of node. If it's not the root it will get over writen when we know it's actual coordinate
+		if (parentIdx != -1)
+		{
+			//if there is a parent then we need to work out our local position for the link
+			//get a pointer to the parent node
+			parentNode = *(nodeArray + parentIdx);
+			//get a pointer to the link for the parent
+			parentLinkPtr = parentNode->linkPtr;
+			parentHalfLength = (parentNode->radius + parentNode->halfLength) *scaleFactor;
+
+			//work out the local position of the node
+			PxVec3 currentRelative = currentNodePtr->childLinkPos * currentNodePtr->globalRotation.rotate(PxVec3(childHalfLength, 0, 0));
+			PxVec3 parentRelative = -currentNodePtr->parentLinkPos * parentNode->globalRotation.rotate(PxVec3(parentHalfLength, 0, 0));
+			currentNodePtr->scaledGobalPos = parentNode->scaledGobalPos - (parentRelative + currentRelative);
+		}
+
+		//build the transform for the link
+		PxTransform linkTransform = PxTransform(currentNodePtr->scaledGobalPos, currentNodePtr->globalRotation);
+		//create the link in the articulation
+		PxArticulationLink* link = articulation->createLink(parentLinkPtr, linkTransform);
+
+		//add the pointer to this link into the ragdoll data so we have it for later when we want to link to it
+		currentNodePtr->linkPtr = link;
+		float jointSpace = .01f; //allows us to set a gap between joints
+		float capsuleHalfLength = (halfLength>jointSpace ? halfLength - jointSpace : 0) + .01f;
+		PxCapsuleGeometry capsule(radius, capsuleHalfLength);
+		link->createShape(capsule, *ragdollMaterial); //adds a capsule collider to the link
+		PxRigidBodyExt::updateMassAndInertia(*link, 50.0f);  //adds some mass to the link
+
+		if (parentIdx != -1)
+		{
+			//get the pointer to the joint from the link
+			PxArticulationJoint *joint = link->getInboundJoint();
+			//get the relative rotation of this link
+			PxQuat frameRotation = parentNode->globalRotation.getConjugate() * currentNodePtr->globalRotation;
+			//set the parent contraint frame
+			PxTransform parentConstraintFrame = PxTransform(PxVec3(currentNodePtr->parentLinkPos * parentHalfLength, 0, 0), frameRotation);
+			//set the child constraint frame (this the constraint frame of the newly added link)
+			PxTransform thisConstraintFrame = PxTransform(PxVec3(currentNodePtr->childLinkPos * childHalfLength, 0, 0));
+			//set up the poses for the joint so it is in the correct place
+			joint->setParentPose(parentConstraintFrame);
+			joint->setChildPose(thisConstraintFrame);
+
+			//set up some constraints to stop it flopping around
+			joint->setSpring(20);
+			joint->setDamping(100);
+			joint->setSwingLimitEnabled(true);
+			joint->setSwingLimit(0.4f, 0.4f);
+			joint->setTwistLimit(.4f, .4f);
+			joint->setTwistLimitEnabled(true);
+		}
+		currentNode++;
+	}
+
+	//put it to sleep so we can see it in it's starting pose
+	articulation->putToSleep();
+	return articulation;
 }
